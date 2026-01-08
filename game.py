@@ -8,6 +8,8 @@ except ModuleNotFoundError:
 import traceback
 from math import sin, cos, pi
 from os import path
+import numpy as np
+from numba import njit
 
 from particle import Particle
 
@@ -38,6 +40,9 @@ def load_map(folder, name):
 
 
 class Game:
+
+    HORIZON = 0.2
+
     def __init__(self):
         pg.init()
         self.clock = pg.time.Clock()
@@ -45,15 +50,22 @@ class Game:
         self.display_rect = self.display_screen.get_rect()
         self.game_screen = pg.Surface((200, 150))
         self.game_screen_rect = self.game_screen.get_rect()
-        self.background = pg.Surface(self.game_screen.get_size())
-        self.background.fill(pg.Color('skyblue'))
-        self.fps = 30
-        self.all_sprites = pg.sprite.Group()
-        self.running = True
-        
         # specify the directories for asset loading
         base_dir = path.dirname(__file__)
         assets_folder = path.join(base_dir, 'assets')
+
+        bg_image = pg.image.load(path.join(assets_folder, 'clouds-4258726_640.jpg')).convert()
+        
+        # Calculate horizon position (must match Mode7.update())
+        horizon_y = int(self.game_screen.get_height() * self.HORIZON)
+        
+        # Scale image to fit width and height above horizon
+        self.background = pg.transform.scale(bg_image, 
+                                            (self.game_screen.get_width(), horizon_y))
+
+        self.fps = 60
+        self.all_sprites = pg.sprite.Group()
+        self.running = True
         
         player_image_strip = pg.image.load(
                 path.join(assets_folder, 'kart.png')).convert_alpha()
@@ -99,23 +111,6 @@ class Game:
         for s in self.all_sprites:
             s.draw(self.game_screen)
         
-# =============================================================================
-#         #for debugging
-#         start1 = vec(self.player.rect.center)
-#         end1 = start1 + self.player.vel * 300
-#         pg.draw.line(self.fake_screen, pg.Color('white'), start1, end1)
-#         
-#         start2 = vec(self.player.rect.center)
-#         v = vec()
-#         v.from_polar((20, self.player.angle * 180 / pi))
-#         end2 = start2 + v
-#         pg.draw.line(self.fake_screen, pg.Color('red'), start2, end2)
-#         
-#         print(end1.angle_to(end2))
-#         for s in self.all_sprites:
-#             pg.draw.rect(self.fake_screen, pg.Color('red'), s.rect, 1)
-# =============================================================================
-        
         transformed_screen = pg.transform.scale(self.game_screen,
                                                 self.display_rect.size)
         self.display_screen.blit(transformed_screen, (0, 0))
@@ -142,7 +137,6 @@ class Mode7:
             self.image = sprite
             self.size = sprite.get_size()
         else:
-            # if no sprite is provided, draw an image with horizontal and vertical lines
             self.image = pg.Surface(size)
             self.image.fill(pg.Color('black'))
             
@@ -155,72 +149,46 @@ class Mode7:
                              (0, y), (size[0], y), 4)
         self.rect = self.image.get_rect()
         
-        # settings for the near and far plane
+        # Convert source image to numpy array once
+        self.image_array = pg.surfarray.array3d(self.image)
+        
         self.near = 0.005
         self.far = 0.01215
-        # field of view
         self.fov_half = pi / 4
         
-    
     def update(self, dt):
-        # references to the "fake" screen (the one that gets rendered onto the screen)
         screen = self.game.game_screen
         screen_rect = self.game.game_screen_rect
-        
         player = self.game.player
         
-        horizon = 0.2
+        # Calculate frustum corners
+        far_x1 = player.pos.x + cos(player.angle - self.fov_half) * self.far
+        far_y1 = player.pos.y + sin(player.angle - self.fov_half) * self.far
+        near_x1 = player.pos.x + cos(player.angle - self.fov_half) * self.near
+        near_y1 = player.pos.y + sin(player.angle - self.fov_half) * self.near
         
-        # create the frustum corner points
-        self.far_x1 = player.pos.x + cos(player.angle - self.fov_half) * self.far
-        self.far_y1 = player.pos.y + sin(player.angle - self.fov_half) * self.far
+        far_x2 = player.pos.x + cos(player.angle + self.fov_half) * self.far
+        far_y2 = player.pos.y + sin(player.angle + self.fov_half) * self.far
+        near_x2 = player.pos.x + cos(player.angle + self.fov_half) * self.near
+        near_y2 = player.pos.y + sin(player.angle + self.fov_half) * self.near
         
-        self.near_x1 = player.pos.x + cos(player.angle - self.fov_half) * self.near
-        self.near_y1 = player.pos.y + sin(player.angle - self.fov_half) * self.near
+        # Render using compiled function
+        screen_array = pg.surfarray.pixels3d(screen)
         
-        self.far_x2 = player.pos.x + cos(player.angle + self.fov_half) * self.far
-        self.far_y2 = player.pos.y + sin(player.angle + self.fov_half) * self.far
+        render_mode7(
+            screen_array,
+            self.image_array,
+            screen_rect.w, screen_rect.h,
+            self.rect.w, self.rect.h,
+            far_x1, far_y1, near_x1, near_y1,
+            far_x2, far_y2, near_x2, near_y2,
+            self.game.HORIZON
+        )
         
-        self.near_x2 = player.pos.x + cos(player.angle + self.fov_half) * self.near
-        self.near_y2 = player.pos.y + sin(player.angle + self.fov_half) * self.near
+        del screen_array  # Release the lock on the surface
         
-        
-        # loop over every pixel on the image, beginning furthest away towards the
-        # camera point
-        for y in range(screen_rect.h):
-            # take a sample point for depth linearly related to rows on the screen
-            sample_depth = y / screen_rect.h + 0.0000001 # this prevents div by 0 errors
-            # not sure how this is handled in the c++ code
-            
-            # Use sample point in non-linear (1/x) way to enable perspective
-            # and grab start and end points for lines across the screen
-            start_x = (self.far_x1 - self.near_x1) / sample_depth + self.near_x1
-            start_y = (self.far_y1 - self.near_y1) / sample_depth + self.near_y1
-            end_x = (self.far_x2 - self.near_x2) / sample_depth + self.near_x2
-            end_y = (self.far_y2 - self.near_y2) / sample_depth + self.near_y2
-            
-            # Linearly interpolate lines across the screen
-            for x in range(screen_rect.w):
-                sample_width = x / screen_rect.w
-                sample_x = (end_x - start_x) * sample_width + start_x
-                sample_y = (end_y - start_y) * sample_width + start_y
-                
-                # Wrap sample coordinates to give "infinite" periodicity on maps
-                sample_x = sample_x % 1
-                sample_y = sample_y % 1
-                
-                # sample a color from the image
-                # translate x and y to screen proportions first because they are fractions of 1
-                col = self.image.get_at((int(sample_x * self.rect.w), 
-                                         int(sample_y * self.rect.h)))
-                # set the pixel values of the fake screen image
-                # get_at and set_at are super slow, gonna try pixel arrays instead
-                screen.set_at((x, int(y + screen_rect.h * horizon)),
-                                        col)
-    
+        # Debug controls
         keys = pg.key.get_pressed()
-        # control the rendering parameters
-        # this is for debugging only!
         if keys[pg.K_LEFT]:
             self.near -= 0.05 * dt
         elif keys[pg.K_RIGHT]:
@@ -235,6 +203,63 @@ class Mode7:
             self.fov_half -= 0.2 * dt
         elif keys[pg.K_e]:
             self.fov_half += 0.2 * dt
+
+
+@njit(cache=True, fastmath=True)
+def render_mode7(screen_array, image_array, screen_w, screen_h,
+                 image_w, image_h,
+                 far_x1, far_y1, near_x1, near_y1,
+                 far_x2, far_y2, near_x2, near_y2,
+                 horizon):
+    """
+    JIT-compiled Mode7 renderer - this will be compiled to machine code
+    """
+    horizon_offset = int(screen_h * horizon)
+    
+    for y in range(screen_h):
+        # Prevent division by zero
+        sample_depth = y / screen_h + 0.0000001
+        
+        # Perspective calculation
+        start_x = (far_x1 - near_x1) / sample_depth + near_x1
+        start_y = (far_y1 - near_y1) / sample_depth + near_y1
+        end_x = (far_x2 - near_x2) / sample_depth + near_x2
+        end_y = (far_y2 - near_y2) / sample_depth + near_y2
+        
+        # Pre-calculate deltas for the scanline
+        dx = (end_x - start_x) / screen_w
+        dy = (end_y - start_y) / screen_w
+        
+        # Current sample position
+        sample_x = start_x
+        sample_y = start_y
+        
+        y_screen = y + horizon_offset
+        if y_screen >= screen_h:
+            continue
+        
+        for x in range(screen_w):
+            # Wrap coordinates for infinite tiling
+            wrapped_x = sample_x - int(sample_x)
+            wrapped_y = sample_y - int(sample_y)
+            
+            if wrapped_x < 0:
+                wrapped_x += 1
+            if wrapped_y < 0:
+                wrapped_y += 1
+            
+            # Sample texture
+            tex_x = int(wrapped_x * image_w) % image_w
+            tex_y = int(wrapped_y * image_h) % image_h
+            
+            # Copy pixel (RGB)
+            screen_array[x, y_screen, 0] = image_array[tex_x, tex_y, 0]
+            screen_array[x, y_screen, 1] = image_array[tex_x, tex_y, 1]
+            screen_array[x, y_screen, 2] = image_array[tex_x, tex_y, 2]
+            
+            # Move to next pixel along scanline
+            sample_x += dx
+            sample_y += dy
             
 
 # ENUMS correspond to kart image index
@@ -250,7 +275,7 @@ class Player(pg.sprite.Sprite):
         self.angle = -1.54
         self.acc = vec()
         self.vel = vec()
-        self.speed = 0.2
+        self.speed = 0.5
         
         self.image = game.player_images[LEFT[0]]
         self.rect = self.image.get_rect()
@@ -339,7 +364,7 @@ class Player(pg.sprite.Sprite):
                 self.steer_time -= dt
             
             # limit the steer time between 0 and the maximum image index
-            self.steer_time = max(min(self.steer_time, steer_anim_speed * dt), 0)
+            self.steer_time = max(min(self.steer_time, 0.6), 0)
                 
             # move forward or backwards
             if keys[pg.K_w]:
