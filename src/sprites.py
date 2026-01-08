@@ -55,7 +55,7 @@ class Player(pg.sprite.Sprite):
                         vel=vec(1, 0),
                         random_angle=20,
                         vanish_speed=20,
-                        nd_size=1.4
+                        end_size=1.4
                         )
                     Particle(
                         self.game, 
