@@ -37,13 +37,16 @@ class Particle(pg.sprite.Sprite):
             self.image.set_colorkey((0, 0, 0))
             self.rect = self.image.get_rect()
             pg.draw.ellipse(self.image, (255, 255, 255), self.rect)
+
         self.colors = colors
         self.color = self.colors[0]
         self.alpha = 255
+
         if len(self.colors) > 1:
             self.prev_color = self.colors[0]
             self.target_color = self.colors[1]
             self.target_index = 1
+
         self.lerp_dist = 0
         self.lerp_speed = 0.07
         self.vanish_speed = vanish_speed
@@ -64,9 +67,11 @@ class Particle(pg.sprite.Sprite):
         # add velocity to position
         for f in self.forces:
             self.pos += f
+
         # update rect
         self.rect = self.image.get_rect()
         self.rect.center = self.pos
+        
         # reduce alpha gradually
         self.alpha -= self.vanish_speed
         if self.alpha < 0:

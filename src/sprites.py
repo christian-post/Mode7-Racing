@@ -1,5 +1,6 @@
 import pygame as pg
 from math import sin, cos, pi
+from enum import Enum
 
 from src.particle import Particle
 
@@ -9,6 +10,10 @@ vec = pg.math.Vector2
 # ENUMS correspond to kart image index
 LEFT = [5, 4, 3, 2, 1, 0]
 RIGHT = [5, 6, 7, 8, 9, 10]
+
+class Direction(Enum):
+    LEFT = 0
+    RIGHT = 1
 
 
 class Player(pg.sprite.Sprite):
@@ -27,7 +32,7 @@ class Player(pg.sprite.Sprite):
         
         self.time_passed = 0 # seconds from the start of the game
         self.steer_time = 0 # seconds the player is pressing a direction
-        self.lastdir = 'LEFT'
+        self.lastdir: Direction = Direction.LEFT
         self.moving = 1 # 1 forward, -1 backwards
         self.dust_timer = 0
         
@@ -42,20 +47,26 @@ class Player(pg.sprite.Sprite):
                 self.dust_timer += dt
                 if self.dust_timer >= 0.3:
                     # create two particles (left and right)
-                    Particle(self.game, self.rect.bottomright, 
-                             images=[self.game.cloud_image],
-                             colors=[pg.Color('white')],
-                             vel=vec(1, 0),
-                             random_angle=20,
-                             vanish_speed=20,
-                             end_size=1.4)
-                    Particle(self.game, self.rect.bottomleft, 
-                             images=[self.game.cloud_image],
-                             colors=[pg.Color('white')],
-                             vel=vec(-1, 0),
-                             random_angle=20,
-                             vanish_speed=20,
-                             end_size=1.4)
+                    Particle(
+                        self.game, 
+                        self.rect.bottomright, 
+                        images=[self.game.cloud_image],
+                        colors=[pg.Color('white')],
+                        vel=vec(1, 0),
+                        random_angle=20,
+                        vanish_speed=20,
+                        nd_size=1.4
+                        )
+                    Particle(
+                        self.game, 
+                        self.rect.bottomleft, 
+                        images=[self.game.cloud_image],
+                        colors=[pg.Color('white')],
+                        vel=vec(-1, 0),
+                        random_angle=20,
+                        vanish_speed=20,
+                        end_size=1.4
+                        )
                     self.dust_timer = 0
             
         else:
@@ -73,7 +84,7 @@ class Player(pg.sprite.Sprite):
             
             if keys[pg.K_a]:
                 # turning left
-                if self.lastdir == 'RIGHT':
+                if self.lastdir == Direction.RIGHT:
                     self.steer_time = 0
                 # increase the steering time
                 self.steer_time += dt
@@ -83,10 +94,10 @@ class Player(pg.sprite.Sprite):
                     self.image = self.game.player_images[LEFT[index + 1]]
                 else:
                     self.image = self.game.player_images[RIGHT[index + 1]]
-                self.lastdir = 'LEFT'
+                self.lastdir = Direction.LEFT
             elif keys[pg.K_d]:
                 # turning right
-                if self.lastdir == 'LEFT':
+                if self.lastdir == Direction.LEFT:
                     self.steer_time = 0
                 self.steer_time += dt
                 self.angle += turn_force * dt * current_speed * self.moving
@@ -94,15 +105,15 @@ class Player(pg.sprite.Sprite):
                     self.image = self.game.player_images[RIGHT[index + 1]]
                 else:
                     self.image = self.game.player_images[LEFT[index + 1]]
-                self.lastdir = 'RIGHT'
+                self.lastdir = Direction.RIGHT
             else:
-                if self.lastdir == 'LEFT' and self.moving == 1:
+                if self.lastdir == Direction.LEFT and self.moving == 1:
                     self.image = self.game.player_images[LEFT[index]]
-                elif self.lastdir == 'LEFT' and self.moving == -1:
+                elif self.lastdir == Direction.LEFT and self.moving == -1:
                     self.image = self.game.player_images[RIGHT[index]]
-                elif self.lastdir == 'RIGHT' and self.moving == 1:
+                elif self.lastdir == Direction.RIGHT and self.moving == 1:
                     self.image = self.game.player_images[RIGHT[index]]
-                elif self.lastdir == 'RIGHT' and self.moving == -1:
+                elif self.lastdir == Direction.RIGHT and self.moving == -1:
                     self.image = self.game.player_images[LEFT[index]]
                 
                 self.steer_time -= dt
@@ -128,7 +139,7 @@ class Player(pg.sprite.Sprite):
             self.vel *= 0.9
     
             
-            # move image up and down
+            # jiggle texture up and down
             if int(self.time_passed * 5) % 2 == 0 and current_speed >= 0.01:
                 self.rect.top = 85
             else:
@@ -138,26 +149,34 @@ class Player(pg.sprite.Sprite):
             # create dust clouds
             self.dust_timer += dt
             if self.dust_timer >= 0.2:
-                if self.lastdir == 'RIGHT':
+                if self.lastdir == Direction.RIGHT:
                     v = vec(3, 0) * self.moving
-                elif self.lastdir == 'LEFT':
+                elif self.lastdir == Direction.LEFT:
                     v = vec(-3, 0) * self.moving
                 if self.steer_time >= 0.3 and current_speed > 0.04:
                     if self.moving == 1:
-                        p = Particle(self.game, self.rect.midbottom, 
-                                     images=[self.game.cloud_image],
-                                     colors=[pg.Color('white')],
-                                     vel=v, random_angle=30,
-                                     vanish_speed=20,
-                                     end_size=1.4)
+                        p = Particle(
+                            self.game, 
+                            self.rect.midbottom, 
+                            images=[self.game.cloud_image],
+                            colors=[pg.Color('white')],
+                            vel=v,
+                            random_angle=30,
+                            vanish_speed=20,
+                            end_size=1.4
+                            )
                         p.add_force(vec(0, 1), 10)
                     else:
-                        p = Particle(self.game, self.rect.midbottom, 
-                                     images=[self.game.cloud_image],
-                                     colors=[pg.Color('white')],
-                                     vel=v, random_angle=30,
-                                     vanish_speed=20,
-                                     end_size=0.9)
+                        p = Particle(
+                            self.game, 
+                            self.rect.midbottom, 
+                            images=[self.game.cloud_image],
+                            colors=[pg.Color('white')],
+                            vel=v, 
+                            random_angle=30,
+                            vanish_speed=20,
+                            end_size=0.9
+                            )
                         p.add_force(vec(0, -2), 10)
                     
                 self.dust_timer = 0

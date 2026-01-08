@@ -13,7 +13,6 @@ from numba import njit
 
 from src.sprites import Player, TrafficLight
 
-vec = pg.math.Vector2
 
 
 def load_map(folder, name):
