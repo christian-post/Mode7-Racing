@@ -25,6 +25,7 @@ class Player(pg.sprite.Sprite):
         self.acc = vec()
         self.vel = vec()
         self.speed = 0.5
+        self.last_road_pos = vec(0, 0)  # last known position on road
         
         self.image = game.player_images[LEFT[0]]
         self.rect = self.image.get_rect()
@@ -130,6 +131,15 @@ class Player(pg.sprite.Sprite):
                 self.moving = -1
                 self.acc.x = self.speed * -0.4
                 self.acc.y = self.speed * -0.4
+
+            # ground tiles affect acceleration
+            ground_speed = self.game.ground_speed_at(self.pos)
+            #self.game.debug_values['ground_speed'] = f'{ground_speed:.1f}'
+            if ground_speed == 1.0:
+                # store position if ground_speed is 1 (= on road)
+                self.last_road_pos.x = self.pos.x
+                self.last_road_pos.y = self.pos.y
+            self.acc *= ground_speed
     
             self.vel.x += self.acc.x * cos(self.angle) * dt
             self.vel.y += self.acc.y * sin(self.angle) * dt
@@ -180,6 +190,15 @@ class Player(pg.sprite.Sprite):
                         p.add_force(vec(0, -2), 10)
                     
                 self.dust_timer = 0
+
+        # check against the killzone
+        if self.game.check_in_killzone(self.pos):
+            # warp back to last known road position
+            # TODO: trigger event with animation and stuff
+            print("Dead")
+            self.pos.x = self.last_road_pos.x
+            self.pos.y = self.last_road_pos.y
+
         
         
     def draw(self, screen):

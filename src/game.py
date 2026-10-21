@@ -3,7 +3,7 @@ import pygame as pg
 try:
     from pytmx.util_pygame import load_pygame
 except ModuleNotFoundError:
-    print('Warning: Pytmx is not installed')
+    print("Warning: Pytmx is not installed")
     
 import traceback
 from math import sin, cos, pi
@@ -21,20 +21,40 @@ def load_map(folder, name):
     map objects as a TiledObjectGroup and layer_data as a list of 2D arrays
     with tile indices
     """
-    tiled_map = load_pygame(path.join(folder, f'{name}.tmx'))
+    tiled_map = load_pygame(path.join(folder, f"{name}.tmx"))
     # create empty surface based on tile map dimensions
     bg_image = pg.Surface((tiled_map.width * tiled_map.tilewidth,
                           tiled_map.height * tiled_map.tileheight))
     # iterate through each tile layer and blit the corresponding tile
     layer_data = []
     for layer in tiled_map.layers:
-        if hasattr(layer, 'data'):
+        if hasattr(layer, "data"):
             layer_data.append(layer.data)
             for x, y, image in layer.tiles():
                 if image:
                     bg_image.blit(image, (x * tiled_map.tilewidth, 
                                           y * tiled_map.tileheight))
-    return bg_image, layer_data
+    return bg_image, layer_data, tiled_map
+
+
+def build_speed_grid(tiled_map, road_layer="layer2", offroad=0.3):
+    # speed factor of 1 where the road layer has a tile, offroad factor elsewhere
+    grid = np.full((tiled_map.width, tiled_map.height), offroad, dtype=np.float32)
+    layer = tiled_map.get_layer_by_name(road_layer)
+    for x, y, gid in layer.iter_data():
+        if gid:
+            grid[x, y] = 1.0
+    return grid
+
+
+def build_killzone_grid(tiled_map, killzone_layer="killzone"):
+    grid = np.full((tiled_map.width, tiled_map.height), False, dtype=bool)
+    layer = tiled_map.get_layer_by_name(killzone_layer)
+    for x, y, gid in layer.iter_data():
+        if gid:
+            grid[x, y] = True
+    return grid
+
 
 
 class Game:
@@ -50,44 +70,97 @@ class Game:
         self.game_screen_rect = self.game_screen.get_rect()
         # specify the directories for asset loading
         base_dir = path.dirname(__file__)
-        assets_folder = path.join(base_dir, '..', 'assets')
+        assets_folder = path.join(base_dir, "..", "assets")
 
-        bg_image = pg.image.load(path.join(assets_folder, 'clouds-4258726_640.jpg')).convert()
+        bg_image = pg.image.load(path.join(assets_folder, "tilesetOpenGameBackground.png")).convert()
         
         # Calculate horizon position (must match Mode7.update())
         horizon_y = int(self.game_screen.get_height() * self.HORIZON)
-        
-        # Scale image to fit width and height above horizon
-        self.background = pg.transform.scale(bg_image, 
-                                            (self.game_screen.get_width(), horizon_y))
+
+        scale = 0.2  # sky image scale
+        img = pg.transform.smoothscale(bg_image, (int(bg_image.get_width() * scale),
+                                                int(bg_image.get_height() * scale)))
+        self.background = img.subsurface((0, img.get_height() - horizon_y,
+                                        img.get_width(), horizon_y)).copy()
+        # px per radian so the sky moves at the same rate as the ground (90 deg FOV)
+        self.sky_speed = self.game_screen.get_width() / (pi / 2)
+
+        # parallax maountains
+        mountains_scale = 0.5  # mountain image scale
+        mountains_image = pg.image.load(path.join(assets_folder, "mountains.png")).convert_alpha()
+        self.mountains = pg.transform.smoothscale(
+            mountains_image,
+            (int(mountains_image.get_width() * mountains_scale),
+             int(mountains_image.get_height() * mountains_scale)))
+        self.mountains_y = horizon_y - self.mountains.get_height()
 
         self.fps = 60
         self.all_sprites = pg.sprite.Group()
         self.running = True
         
         player_image_strip = pg.image.load(
-                path.join(assets_folder, 'kart.png')).convert_alpha()
+                path.join(assets_folder, "kart.png")).convert_alpha()
         self.player_images = [player_image_strip.subsurface((i * 30, 0, 30, 32)) 
                               for i in range(11)]
         
         self.cloud_image = pg.image.load(
-                path.join(assets_folder, 'cloud.png')).convert_alpha()
+                path.join(assets_folder, "cloud.png")).convert_alpha()
         self.traffic_light_images = pg.image.load(
-                path.join(assets_folder, 'lights.png')).convert_alpha()
+                path.join(assets_folder, "lights.png")).convert_alpha()
         self.bush_image = pg.image.load(
-                path.join(assets_folder, 'bush.png')).convert_alpha()  # TODO: unused
+                path.join(assets_folder, "bush.png")).convert_alpha()  # TODO: unused
         
         self.player = Player(self)
         self.traffic_light = TrafficLight(self, (100, 60))
-        
+
+        self.speed_grid = None
+        self.killzone_grid = None
         try:
-            self.map_img, _ = load_map(folder=assets_folder, name='track2')
+            self.map_img, _, tiled_map = load_map(folder=assets_folder, name="track2")
+            self.speed_grid = build_speed_grid(tiled_map)
+            self.killzone_grid = build_killzone_grid(tiled_map)
             self.map = Mode7(self, self.map_img)
         except Exception:
             traceback.print_exc()
             self.map = Mode7(self)
             
         self.started = False
+
+        # debugging
+        self.debug_font = pg.font.SysFont('consolas', 16)
+        self.show_debug = True
+        self.debug_values = {}
+
+
+    def ground_speed_at(self, pos):
+        # get speed depending on which tile you are on
+        if self.speed_grid is None:
+            return 1.0
+        gw, gh = self.speed_grid.shape
+        tx = int((pos.x % 1) * gw)
+        ty = int((pos.y % 1) * gh)
+        return self.speed_grid[tx, ty]
+
+
+    def check_in_killzone(self, pos):
+        # check if this position is within the killzone grid
+        if self.killzone_grid is None:
+            return False
+
+        gw, gh = self.killzone_grid.shape      
+        tx = int((pos.x % 1) * gw)
+        ty = int((pos.y % 1) * gh)
+        return self.killzone_grid[tx, ty]
+
+
+    def blit_scrolling(self, image, rate, y):
+        # rate 1.0 = moves with the ground, < 1.0 = farther away
+        image_width = image.get_width()
+        offset = int(self.player.angle * self.sky_speed * rate) % image_width
+        x = -offset
+        while x < self.game_screen_rect.w:  # tile if image is narrower than screen
+            self.game_screen.blit(image, (x, y))
+            x += image_width
         
     
     def events(self):
@@ -95,14 +168,35 @@ class Game:
             if event.type == pg.QUIT:
                 self.running = False
 
+            if event.type == pg.KEYDOWN and event.key == pg.K_F1:
+                self.show_debug = not self.show_debug
+
     
     def update(self, dt):
-        self.game_screen.blit(self.background, (0, 0))
+        # construct the skybox
+        self.blit_scrolling(self.background, 0.3, 0)
+        self.blit_scrolling(self.mountains, 1.0, self.mountains_y)
+        self.map.update(dt)
+        
         self.map.update(dt)
         self.all_sprites.update(dt)
         
         if self.traffic_light.done:
             self.started = True
+
+        # DEBUGGING
+        self.debug_values['pos'] = f'{self.player.pos.x:.3f}, {self.player.pos.y:.3f}'
+        self.debug_values['last_road_pos'] = f'{self.player.last_road_pos.x:.3f}, {self.player.last_road_pos.y:.3f}'
+
+    def draw_debug(self):
+        line_y = 5
+        for name, value in self.debug_values.items():
+            if isinstance(value, float):
+                value = f'{value:.4f}'
+            text = self.debug_font.render(f'{name}: {value}', True,
+                                        pg.Color('white'), pg.Color('black'))
+            self.display_screen.blit(text, (5, line_y))
+            line_y += text.get_height()
         
 
     def draw(self):
@@ -112,6 +206,10 @@ class Game:
         transformed_screen = pg.transform.scale(self.game_screen,
                                                 self.display_rect.size)
         self.display_screen.blit(transformed_screen, (0, 0))
+
+        if self.show_debug:
+            self.draw_debug()
+
         pg.display.update()
         
         
@@ -119,7 +217,7 @@ class Game:
         self.running = True
         while self.running:
             delta_time = self.clock.tick(self.fps) / 1000
-            pg.display.set_caption(f'FPS: {round(self.clock.get_fps(), 2)}')
+            pg.display.set_caption(f"FPS: {round(self.clock.get_fps(), 2)}")
             self.events()        
             self.update(delta_time)
             self.draw()
@@ -136,14 +234,14 @@ class Mode7:
             self.size = sprite.get_size()
         else:
             self.image = pg.Surface(size)
-            self.image.fill(pg.Color('black'))
+            self.image.fill(pg.Color("black"))
             
             tilesize = 32
             for x in range(0, size[0], tilesize):
-                pg.draw.line(self.image, pg.Color('darkturquoise'),
+                pg.draw.line(self.image, pg.Color("darkturquoise"),
                              (x, 0), (x, size[1]), 4)
             for y in range(0, size[1], tilesize):
-                pg.draw.line(self.image, pg.Color('blueviolet'),
+                pg.draw.line(self.image, pg.Color("blueviolet"),
                              (0, y), (size[0], y), 4)
         self.rect = self.image.get_rect()
         
