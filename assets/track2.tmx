@@ -329,11 +329,11 @@
    </properties>
    <polygon points="-343.444,728 -343.444,24 -247.444,24 -111.444,728"/>
   </object>
-  <object id="5" name="checkpoint" x="512" y="744" rotation="175.538">
+  <object id="5" name="checkpoint" x="624" y="264">
    <properties>
     <property name="number" type="int" value="3"/>
    </properties>
-   <polygon points="-219.471,-169.589 -150.686,-228.416 435.092,491.34 -55.3943,709.842"/>
+   <polygon points="-600,768 -592,568 56,696 48,776"/>
   </object>
   <object id="6" name="checkpoint" x="1064" y="1232">
    <properties>
@@ -341,17 +341,17 @@
    </properties>
    <polygon points="184,312 8,344 72,-144 152,-144"/>
   </object>
-  <object id="7" name="checkpoint" x="1840" y="1640" rotation="272.528">
+  <object id="7" name="checkpoint" x="1840" y="1640">
    <properties>
     <property name="number" type="int" value="5"/>
    </properties>
-   <polygon points="119.759,-189.467 159.72,-191.232 485.905,667.215 126.256,683.095"/>
+   <polygon points="-176,-136 -176,-168 688,-456 688,-112"/>
   </object>
-  <object id="8" name="checkpoint" x="823.697" y="1757.75" rotation="73.7043">
+  <object id="8" name="checkpoint" x="823.697" y="1757.75">
    <properties>
     <property name="number" type="int" value="6"/>
    </properties>
-   <polygon points="-47.25,-172.491 589.486,-69.6964 580.507,-38.982 -76.4319,-72.6692"/>
+   <polygon points="208.303,-133.75 232.303,546.25 200.303,546.25 80.303,-93.75"/>
   </object>
   <object id="11" name="checkpoint" x="430.59" y="2296">
    <properties>

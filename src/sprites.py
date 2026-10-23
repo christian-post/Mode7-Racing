@@ -36,6 +36,7 @@ class Player(pg.sprite.Sprite):
         self.lastdir: Direction = Direction.LEFT
         self.moving = 1 # 1 forward, -1 backwards
         self.dust_timer = 0
+        self.dirt_timer = 0
         
     
     def update(self, dt):
@@ -156,7 +157,7 @@ class Player(pg.sprite.Sprite):
                 self.rect.top = 84
                 
             
-            # create dust clouds
+            # create dust clouds when steering
             self.dust_timer += dt
             if self.dust_timer >= 0.2:
                 if self.lastdir == Direction.RIGHT:
@@ -190,6 +191,37 @@ class Player(pg.sprite.Sprite):
                         p.add_force(vec(0, -2), 10)
                     
                 self.dust_timer = 0
+
+
+            # create dirt/grass particles when offroad
+            if ground_speed < 1.0:
+                # TODO check for different ground tiles
+                if self.vel.length_squared() > 0.0001:
+                    self.dirt_timer += dt
+                if self.dirt_timer >= 0.2:
+                    self.dirt_timer = 0
+                    # create two particles (left and right)
+                    Particle(
+                        self.game, 
+                        self.rect.bottomright, 
+                        images=[self.game.dirt_image],
+                        colors=[pg.Color('white')],
+                        vel=vec(1, 0),
+                        random_angle=20,
+                        vanish_speed=20,
+                        end_size=1.4
+                        )
+                    Particle(
+                        self.game, 
+                        self.rect.bottomleft, 
+                        images=[self.game.dirt_image],
+                        colors=[pg.Color('white')],
+                        vel=vec(-1, 0),
+                        random_angle=20,
+                        vanish_speed=20,
+                        end_size=1.4
+                        )
+
 
         # check against the killzone
         if self.game.check_in_killzone(self.pos):

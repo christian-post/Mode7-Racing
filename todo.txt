@@ -1,3 +1,2 @@
 - count laps
-- tile collision (for slowing down on dirt) --> add dirt/grass particles
-- horizontal background scrolling --> find skybox image that tiles
+- framerate-independent game speed
