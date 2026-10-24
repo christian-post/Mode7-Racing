@@ -12,6 +12,7 @@ import numpy as np
 
 from src.render import Mode7
 from src.sprites import Player, TrafficLight
+from src.hud import HUD, LAP_COMPLETED
 import src.utils as utils
 
 vec = pg.math.Vector2
@@ -44,7 +45,6 @@ def load_map(folder, name):
         object_data[group.name] = []
         for obj in group:
             object_data[group.name].append(obj)
-            print(obj.__dict__)
 
     return bg_image, layer_data, tiled_map, object_data
 
@@ -74,15 +74,23 @@ class Game:
     HORIZON = 0.2
     SKY_IMAGE_SCALE = 0.2
     SKY_SCROLL_RATE = 1.0
-    MOUNTAIN_SCROLL_RATE = 0.3
+    MOUNTAIN_SCROLL_RATE = 0.6
     FPS = 60
     DISPLAY_W = 800
     DISPLAY_H = 600
     GAME_SCREEN_W = 200
     GAME_SCREEN_H = 150
 
+
     def __init__(self):
         pg.init()
+
+        # debugging
+        self.debug_font = pg.font.SysFont('consolas', 16)
+        self.show_debug = False
+        self.debug_values = {}
+
+        # game variables
         self.clock = pg.time.Clock()
         self.display_screen = pg.display.set_mode((self.DISPLAY_W, self.DISPLAY_H))
         self.display_rect = self.display_screen.get_rect()
@@ -117,7 +125,7 @@ class Game:
         self.running = True
         
         player_image_strip = pg.image.load(
-                path.join(assets_folder, "kart.png")).convert_alpha()
+                path.join(assets_folder, "kart2.png")).convert_alpha()
         self.player_images = [player_image_strip.subsurface((i * 30, 0, 30, 32)) 
                               for i in range(11)]
         
@@ -136,13 +144,19 @@ class Game:
         self.speed_grid = None
         self.killzone_grid = None
         self.game_object_data = None  # raw Tiled game objects, TODO handle how they are loaded and unloaded differently
+        tiled_map = None
+        self.race_time = 0.0
+        self.lap_start_time = 0.0
+
+        # load the tilemap
         try:
             self.map_img, _, tiled_map, self.game_object_data = load_map(folder=assets_folder, name="track2")
 
             # debug-draw checkpoint polygons onto the map texture
-            for obj in self.game_object_data["checkpoints"]:
-                color = "red" if obj.name == "finish" else "yellow"
-                pg.draw.polygon(self.map_img, color, obj.points, 8)
+            if self.show_debug:
+                for obj in self.game_object_data["checkpoints"]:
+                    color = "red" if obj.name == "finish" else "yellow"
+                    pg.draw.polygon(self.map_img, color, obj.points, 8)
 
             self.speed_grid = build_speed_grid(tiled_map)
             self.killzone_grid = build_killzone_grid(tiled_map)
@@ -150,17 +164,14 @@ class Game:
         except Exception:
             traceback.print_exc()
             self.map = Mode7(self)
-            
+
+
+        self.hud = HUD(self, tiled_map)    
         self.started = False  # if the race has started (starts after green light)
         self.current_lap = 1
         self.max_laps = 3
         self.current_checkpoint = 0
         self.num_checkpoints = max([obj.properties.get("number", 0) for obj in self.game_object_data["checkpoints"]])
-
-        # debugging
-        self.debug_font = pg.font.SysFont('consolas', 16)
-        self.show_debug = True
-        self.debug_values = {}
 
 
     def ground_speed_at(self, pos):
@@ -195,12 +206,16 @@ class Game:
         
     
     def events(self):
+        # builtin events
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 self.running = False
 
             if event.type == pg.KEYDOWN and event.key == pg.K_F1:
                 self.show_debug = not self.show_debug
+
+            # custom events
+            self.hud.handle_event(event)
 
     
     def update(self, dt):
@@ -216,6 +231,11 @@ class Game:
         for obj in self.game_object_data["checkpoints"]:
             if utils.point_in_polygon(pixel_pos, obj.points):
                 if obj.name == "finish" and self.current_checkpoint == self.num_checkpoints:
+                    # show the lap time in the HUD
+                    pg.event.post(pg.event.Event(LAP_COMPLETED,
+                                 lap=self.current_lap,
+                                 lap_time=self.race_time - self.lap_start_time))
+                    self.lap_start_time = self.race_time
                     self.current_lap += 1
                     self.current_checkpoint = 0
                 elif obj.name == "checkpoint":
@@ -226,6 +246,9 @@ class Game:
         
         if self.traffic_light.done:
             self.started = True
+
+        if self.started and self.current_lap <= self.max_laps:
+            self.race_time += dt
 
         # DEBUGGING
         self.debug_values['pos'] = f'{self.player.pos.x:.3f}, {self.player.pos.y:.3f}'
@@ -248,6 +271,9 @@ class Game:
     def draw(self):
         for s in self.all_sprites:
             s.draw(self.game_screen)
+
+        # overlay
+        self.hud.draw(self.game_screen)
         
         transformed_screen = pg.transform.scale(self.game_screen, self.display_rect.size)
         self.display_screen.blit(transformed_screen, (0, 0))

@@ -151,7 +151,8 @@ class Player(pg.sprite.Sprite):
     
             
             # jiggle texture up and down
-            if int(self.time_passed * 5) % 2 == 0 and current_speed >= 0.01:
+            JIGGLE_SPEED = 8
+            if int(self.time_passed * JIGGLE_SPEED) % 2 == 0 and current_speed >= 0.01:
                 self.rect.top = 85
             else:
                 self.rect.top = 84
