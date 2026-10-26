@@ -6,7 +6,7 @@ vec = pg.math.Vector2
 LAP_COMPLETED = pg.event.custom_type()
 
 
-def build_minimap(tiled_map, size, layer_name="layer2",
+def build_minimap(tiled_map, size, layer_name="road",
                   road_color=(230, 230, 230, 220), bg_color=(0, 0, 0, 110)):
     # road tiles as pixel mask (1 px per tile), scaled to minimap size
     surf = pg.Surface((tiled_map.width, tiled_map.height), pg.SRCALPHA)
@@ -29,7 +29,7 @@ class HUD:
     BAR_GAP = 1
     BAR_MIN_H = 2
     BAR_STEP_H = 1
-    MAX_SPEED = 0.075  # approx. top speed with current physics (acc 0.5, damping 0.9)
+    MAX_SPEED = 240  # max speed approximation, TODO set elswhere
     LAP_TIME_DURATION = 5000  # ms the last lap time stays visible
 
     def __init__(self, game, tiled_map=None):
@@ -98,9 +98,12 @@ class HUD:
         screen.blit(self.minimap, rect)
         pg.draw.rect(screen, (255, 255, 255), rect.inflate(2, 2), 1)
 
-        # player as single pixel + heading pixel
+        # player as single pixel + heading pixel (dot)
         p = self.game.player
-        dot = vec(rect.x + (p.pos.x % 1) * mw, rect.y + (p.pos.y % 1) * mh)
+        map_w = self.game.course.pixel_width
+        map_h = self.game.course.pixel_height
+        dot = vec(rect.x + (p.pos.x % map_w) / map_w * mw,
+                rect.y + (p.pos.y % map_h) / map_h * mh)
         tip = dot + vec(2, 0).rotate_rad(p.angle)
         screen.set_at((int(tip.x), int(tip.y)), (255, 200, 60))
         pg.draw.rect(screen, (255, 60, 60), (int(dot.x) - 1, int(dot.y) - 1, 2, 2))

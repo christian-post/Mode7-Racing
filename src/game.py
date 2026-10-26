@@ -1,9 +1,4 @@
 import pygame as pg
-
-try:
-    from pytmx.util_pygame import load_pygame
-except ModuleNotFoundError:
-    print("Warning: Pytmx is not installed")
     
 import traceback
 from math import pi
@@ -11,6 +6,7 @@ from os import path
 import numpy as np
 
 from src.render import Mode7
+from src.course import Course
 from src.sprites import Player, TrafficLight
 from src.hud import HUD, LAP_COMPLETED
 import src.utils as utils
@@ -19,53 +15,23 @@ vec = pg.math.Vector2
 
 
 
-def load_map(folder, name):
-    """
-    load a Tiled map in .tmx format and return a background image Surface, 
-    map objects as a TiledObjectGroup and layer_data as a list of 2D arrays
-    with tile indices
-    """
-    tiled_map = load_pygame(path.join(folder, f"{name}.tmx"))
-    # create empty surface based on tile map dimensions
-    bg_image = pg.Surface((tiled_map.width * tiled_map.tilewidth,
-                          tiled_map.height * tiled_map.tileheight))
-    # iterate through each tile layer and blit the corresponding tile
-    layer_data = []
-    for layer in tiled_map.layers:
-        if hasattr(layer, "data"):
-            layer_data.append(layer.data)
-            for x, y, image in layer.tiles():
-                if image:
-                    bg_image.blit(image, (x * tiled_map.tilewidth, 
-                                          y * tiled_map.tileheight))
-
-    # load object layers
-    object_data = {}
-    for group in tiled_map.objectgroups:
-        object_data[group.name] = []
-        for obj in group:
-            object_data[group.name].append(obj)
-
-    return bg_image, layer_data, tiled_map, object_data
+# def build_speed_grid(tiled_map, road_layer="layer2", offroad=0.3):
+#     # speed factor of 1 where the road layer has a tile, offroad factor elsewhere
+#     grid = np.full((tiled_map.width, tiled_map.height), offroad, dtype=np.float32)
+#     layer = tiled_map.get_layer_by_name(road_layer)
+#     for x, y, gid in layer.iter_data():
+#         if gid:
+#             grid[x, y] = 1.0
+#     return grid
 
 
-def build_speed_grid(tiled_map, road_layer="layer2", offroad=0.3):
-    # speed factor of 1 where the road layer has a tile, offroad factor elsewhere
-    grid = np.full((tiled_map.width, tiled_map.height), offroad, dtype=np.float32)
-    layer = tiled_map.get_layer_by_name(road_layer)
-    for x, y, gid in layer.iter_data():
-        if gid:
-            grid[x, y] = 1.0
-    return grid
-
-
-def build_killzone_grid(tiled_map, killzone_layer="killzone"):
-    grid = np.full((tiled_map.width, tiled_map.height), False, dtype=bool)
-    layer = tiled_map.get_layer_by_name(killzone_layer)
-    for x, y, gid in layer.iter_data():
-        if gid:
-            grid[x, y] = True
-    return grid
+# def build_killzone_grid(tiled_map, killzone_layer="killzone"):
+#     grid = np.full((tiled_map.width, tiled_map.height), False, dtype=bool)
+#     layer = tiled_map.get_layer_by_name(killzone_layer)
+#     for x, y, gid in layer.iter_data():
+#         if gid:
+#             grid[x, y] = True
+#     return grid
 
 
 
@@ -143,56 +109,38 @@ class Game:
 
         self.speed_grid = None
         self.killzone_grid = None
-        self.game_object_data = None  # raw Tiled game objects, TODO handle how they are loaded and unloaded differently
         tiled_map = None
         self.race_time = 0.0
         self.lap_start_time = 0.0
 
         # load the tilemap
+        self.course = None
         try:
-            self.map_img, _, tiled_map, self.game_object_data = load_map(folder=assets_folder, name="track2")
-
-            # debug-draw checkpoint polygons onto the map texture
-            if self.show_debug:
-                for obj in self.game_object_data["checkpoints"]:
-                    color = "red" if obj.name == "finish" else "yellow"
-                    pg.draw.polygon(self.map_img, color, obj.points, 8)
-
-            self.speed_grid = build_speed_grid(tiled_map)
-            self.killzone_grid = build_killzone_grid(tiled_map)
-            self.map = Mode7(self, self.map_img)
+            self.course = Course(assets_folder, "track2")
+            self.map = Mode7(self, self.course.image)
         except Exception:
             traceback.print_exc()
             self.map = Mode7(self)
 
+        start_pos = self.course.get_start_position(8)
+        if start_pos is not None:
+            self.player.pos = start_pos
 
-        self.hud = HUD(self, tiled_map)    
+
+        self.hud = HUD(self, self.course.tiled_map if self.course else None) 
         self.started = False  # if the race has started (starts after green light)
         self.current_lap = 1
         self.max_laps = 3
         self.current_checkpoint = 0
-        self.num_checkpoints = max([obj.properties.get("number", 0) for obj in self.game_object_data["checkpoints"]])
+        self.num_checkpoints = max([obj.properties.get("number", 0) for obj in self.course.game_object_data["checkpoints"]])
 
 
     def ground_speed_at(self, pos):
-        # get speed depending on which tile you are on
-        if self.speed_grid is None:
-            return 1.0
-        gw, gh = self.speed_grid.shape
-        tx = int((pos.x % 1) * gw)
-        ty = int((pos.y % 1) * gh)
-        return self.speed_grid[tx, ty]
+        return self.course.ground_speed_at(pos) if self.course else 1.0
 
 
     def check_in_killzone(self, pos):
-        # check if this position is within the killzone grid
-        if self.killzone_grid is None:
-            return False
-
-        gw, gh = self.killzone_grid.shape      
-        tx = int((pos.x % 1) * gw)
-        ty = int((pos.y % 1) * gh)
-        return self.killzone_grid[tx, ty]
+        return self.course.in_killzone(pos) if self.course else False
 
 
     def blit_scrolling(self, image, rate, y):
@@ -226,9 +174,9 @@ class Game:
         self.all_sprites.update(dt)
 
         # check for lap progression
-        map_w, map_h = self.map_img.get_size()
-        pixel_pos = vec((self.player.pos.x % 1) * map_w, (self.player.pos.y % 1) * map_h)
-        for obj in self.game_object_data["checkpoints"]:
+        map_w, map_h = self.course.image.get_size()
+        pixel_pos = vec(self.player.pos.x % map_w, self.player.pos.y % map_h)
+        for obj in self.course.game_object_data["checkpoints"]:
             if utils.point_in_polygon(pixel_pos, obj.points):
                 if obj.name == "finish" and self.current_checkpoint == self.num_checkpoints:
                     # show the lap time in the HUD

@@ -20,11 +20,12 @@ class Player(pg.sprite.Sprite):
     def __init__(self, game):
         super().__init__(game.all_sprites)
         self.game = game
-        self.pos = vec(999.904, 1000.38)
+
         self.angle = -1.54
         self.acc = vec()
         self.vel = vec()
-        self.speed = 0.5
+        self.pos = vec(2892.8, 1216.0)  # fallback if course has no start positions
+        self.speed = 1800
         self.last_road_pos = vec(0, 0)  # last known position on road
         
         self.image = game.player_images[LEFT[0]]
@@ -73,9 +74,9 @@ class Player(pg.sprite.Sprite):
             
         else:
             if self.moving == 1:
-                turn_force = 20 # how much the angle changes when turning
+                turn_force = 0.00625 # how much the angle changes when turning
             else:
-                turn_force = 50
+                turn_force = 0.015625
             steer_anim_speed = 10 # turning animation speed
             
             current_speed = self.vel.length()
@@ -152,7 +153,7 @@ class Player(pg.sprite.Sprite):
             
             # jiggle texture up and down
             JIGGLE_SPEED = 8
-            if int(self.time_passed * JIGGLE_SPEED) % 2 == 0 and current_speed >= 0.01:
+            if int(self.time_passed * JIGGLE_SPEED) % 2 == 0 and current_speed >= 32:
                 self.rect.top = 85
             else:
                 self.rect.top = 84
@@ -165,7 +166,7 @@ class Player(pg.sprite.Sprite):
                     v = vec(3, 0) * self.moving
                 elif self.lastdir == Direction.LEFT:
                     v = vec(-3, 0) * self.moving
-                if self.steer_time >= 0.3 and current_speed > 0.04:
+                if self.steer_time >= 0.3 and current_speed > 128:
                     if self.moving == 1:
                         p = Particle(
                             self.game, 
