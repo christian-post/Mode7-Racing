@@ -1,4 +1,5 @@
 import pygame as pg
+from os import path
 
 vec = pg.math.Vector2
 
@@ -21,8 +22,8 @@ def build_minimap(tiled_map, size, layer_name="road",
 class HUD:
     # sizes are in game_screen pixels (drawn before upscaling)
     MARGIN = 3
-    FONT_PATH = None  # path to a .ttf pixel font, None = pygame default
-    FONT_SIZE = 14
+    FONT_PATH = path.join(path.dirname(__file__), "..", "assets", "PressStart2P.ttf")
+    FONT_SIZE = 8
     MINIMAP_SIZE = (36, 36)
     SPEED_BARS = 6
     BAR_W = 2

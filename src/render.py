@@ -49,9 +49,8 @@ class Mode7:
         return (self.near + (self.far - self.near) / depth) * cos(self.fov_half)
 
         
-    def update(self, dt):
-        screen = self.game.game_screen
-        screen_rect = self.game.game_screen_rect
+    def draw(self, screen):
+        screen_rect = screen.get_rect()
         player = self.game.player
 
         # camera sits behind the kart
@@ -92,7 +91,9 @@ class Mode7:
         )
         
         del screen_array  # Release the lock on the surface
-        
+
+
+    def update(self, dt):
         # Debug controls
         keys = pg.key.get_pressed()
         if keys[pg.K_LEFT]:

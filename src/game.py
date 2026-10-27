@@ -1,37 +1,12 @@
 import pygame as pg
     
-import traceback
 from math import pi
 from os import path
 import numpy as np
 
-from src.render import Mode7
-from src.course import Course
-from src.sprites import Player, TrafficLight
-from src.hud import HUD, LAP_COMPLETED
-import src.utils as utils
+from src.scenes import SCENES
 
 vec = pg.math.Vector2
-
-
-
-# def build_speed_grid(tiled_map, road_layer="layer2", offroad=0.3):
-#     # speed factor of 1 where the road layer has a tile, offroad factor elsewhere
-#     grid = np.full((tiled_map.width, tiled_map.height), offroad, dtype=np.float32)
-#     layer = tiled_map.get_layer_by_name(road_layer)
-#     for x, y, gid in layer.iter_data():
-#         if gid:
-#             grid[x, y] = 1.0
-#     return grid
-
-
-# def build_killzone_grid(tiled_map, killzone_layer="killzone"):
-#     grid = np.full((tiled_map.width, tiled_map.height), False, dtype=bool)
-#     layer = tiled_map.get_layer_by_name(killzone_layer)
-#     for x, y, gid in layer.iter_data():
-#         if gid:
-#             grid[x, y] = True
-#     return grid
 
 
 
@@ -65,6 +40,7 @@ class Game:
         # specify the directories for asset loading
         base_dir = path.dirname(__file__)
         assets_folder = path.join(base_dir, "..", "assets")
+        self.assets_folder = assets_folder
 
         bg_image = pg.image.load(path.join(assets_folder, "tilesetOpenGameBackground.png")).convert()
         
@@ -103,36 +79,41 @@ class Game:
                 path.join(assets_folder, "lights.png")).convert_alpha()
         self.bush_image = pg.image.load(
                 path.join(assets_folder, "bush.png")).convert_alpha()  # TODO: unused
-        
-        self.player = Player(self)
-        self.traffic_light = TrafficLight(self, (100, 60))
 
-        self.speed_grid = None
-        self.killzone_grid = None
-        tiled_map = None
-        self.race_time = 0.0
-        self.lap_start_time = 0.0
+        self.font = pg.font.Font(path.join(assets_folder, "PressStart2P.ttf"), 8)  # menu text
 
-        # load the tilemap
+        # race objects, set by the Race scene (sprites access them through game)
+        self.player = None
         self.course = None
-        try:
-            self.course = Course(assets_folder, "track2")
-            self.map = Mode7(self, self.course.image)
-        except Exception:
-            traceback.print_exc()
-            self.map = Mode7(self)
-
-        start_pos = self.course.get_start_position(8)
-        if start_pos is not None:
-            self.player.pos = start_pos
-
-
-        self.hud = HUD(self, self.course.tiled_map if self.course else None) 
+        self.map = None
         self.started = False  # if the race has started (starts after green light)
-        self.current_lap = 1
-        self.max_laps = 3
-        self.current_checkpoint = 0
-        self.num_checkpoints = max([obj.properties.get("number", 0) for obj in self.course.game_object_data["checkpoints"]])
+
+        # scene stack: top scene gets events/updates,
+        # transparent scenes also draw the scene below them
+        self.scene_stack = []
+        self.push_scene("TitleScreen")
+
+
+    # --- scene management ---
+
+    def push_scene(self, name, **kwargs):
+        scene = SCENES[name](self, **kwargs)
+        self.scene_stack.append(scene)
+        scene.startup()
+
+
+    def pop_scene(self):
+        self.scene_stack.pop().cleanup()
+        if not self.scene_stack:
+            self.running = False
+
+
+    def switch_scene(self, name, **kwargs):
+        # replace the whole stack with a new scene
+        while self.scene_stack:
+            self.scene_stack.pop().cleanup()
+        self.debug_values.clear()
+        self.push_scene(name, **kwargs)
 
 
     def ground_speed_at(self, pos):
@@ -143,18 +124,7 @@ class Game:
         return self.course.in_killzone(pos) if self.course else False
 
 
-    def blit_scrolling(self, image, rate, y):
-        # rate 1.0 = moves with the ground, < 1.0 = farther away
-        image_width = image.get_width()
-        offset = int(self.player.angle * self.sky_speed * rate) % image_width
-        x = -offset
-        while x < self.game_screen_rect.w:  # tile if image is narrower than screen
-            self.game_screen.blit(image, (x, y))
-            x += image_width
-        
-    
     def events(self):
-        # builtin events
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 self.running = False
@@ -162,46 +132,14 @@ class Game:
             if event.type == pg.KEYDOWN and event.key == pg.K_F1:
                 self.show_debug = not self.show_debug
 
-            # custom events
-            self.hud.handle_event(event)
+            # builtin and custom events go to the active scene
+            if self.scene_stack:
+                self.scene_stack[-1].get_event(event)
 
-    
+
     def update(self, dt):
-        # construct the skybox
-        self.blit_scrolling(self.background, self.SKY_SCROLL_RATE, 0)
-        self.blit_scrolling(self.mountains, self.MOUNTAIN_SCROLL_RATE, self.mountains_y)
-        self.map.update(dt)
-        self.all_sprites.update(dt)
-
-        # check for lap progression
-        pixel_pos = self.player.pos
-        for obj in self.course.game_object_data["checkpoints"]:
-            if utils.point_in_polygon(pixel_pos, obj.points):
-                if obj.name == "finish" and self.current_checkpoint == self.num_checkpoints:
-                    # show the lap time in the HUD
-                    pg.event.post(pg.event.Event(LAP_COMPLETED,
-                                 lap=self.current_lap,
-                                 lap_time=self.race_time - self.lap_start_time))
-                    self.lap_start_time = self.race_time
-                    self.current_lap += 1
-                    self.current_checkpoint = 0
-                elif obj.name == "checkpoint":
-                    number = obj.properties.get("number")
-                    if number == self.current_checkpoint + 1:
-                        self.current_checkpoint = number
-
-        
-        if self.traffic_light.done:
-            self.started = True
-
-        if self.started and self.current_lap <= self.max_laps:
-            self.race_time += dt
-
-        # DEBUGGING
-        self.debug_values['pos'] = f'{self.player.pos.x:.3f}, {self.player.pos.y:.3f}'
-        self.debug_values['last_road_pos'] = f'{self.player.last_road_pos.x:.3f}, {self.player.last_road_pos.y:.3f}'
-        self.debug_values['lap'] = f'{self.current_lap}/{self.max_laps}'
-        self.debug_values['checkpoint'] = f'{self.current_checkpoint}'
+        if self.scene_stack:
+            self.scene_stack[-1].update(dt)
 
 
     def draw_debug(self):
@@ -216,12 +154,14 @@ class Game:
         
 
     def draw(self):
-        for s in self.all_sprites:
-            s.draw(self.game_screen)
+        # find the lowest visible scene, then draw upwards
+        first_visible = len(self.scene_stack) - 1
+        while first_visible > 0 and self.scene_stack[first_visible].transparent:
+            first_visible -= 1
+        for scene in self.scene_stack[first_visible:]:
+            scene.draw(self.game_screen)
 
-        # overlay
-        self.hud.draw(self.game_screen)
-        
+        # scale up the game screen to the display
         transformed_screen = pg.transform.scale(self.game_screen, self.display_rect.size)
         self.display_screen.blit(transformed_screen, (0, 0))
 
