@@ -28,6 +28,7 @@ class Race(Scene):
         # read by HUD
         self.race_time = 0.0
         self.lap_start_time = 0.0
+        self.lap_times = []  # store all lap times
         self.current_lap = 1
         self.max_laps = self.MAX_LAPS
         self.current_checkpoint = 0
@@ -39,6 +40,7 @@ class Race(Scene):
         self.traffic_light = None
         self.checkpoints = []
         self.num_checkpoints = 0
+
 
     def startup(self):
         # sprites, Mode7 and Course queries reach the race objects through game
@@ -71,10 +73,12 @@ class Race(Scene):
         # HUD reads lap/time/player/course from the race scene
         self.hud = HUD(self, self.course.tiled_map if self.course else None)
 
+
     def cleanup(self):
         self.game.all_sprites.empty()
         self.game.billboards.empty()
         self.game.started = False
+
 
     def get_event(self, event):
         self.hud.handle_event(event)
@@ -85,15 +89,20 @@ class Race(Scene):
         elif event.key == pg.K_RETURN and self.phase == RacePhase.FINISHED:
             self.game.switch_scene("CourseSelect")
 
+
     def check_lap_progress(self):
         for checkpoint in self.checkpoints:
             if not utils.point_in_polygon(self.player.pos, checkpoint.points):
                 continue
             if checkpoint.name == "finish" and self.current_checkpoint == self.num_checkpoints:
                 # show the lap time in the HUD
-                pg.event.post(pg.event.Event(LAP_COMPLETED,
-                              lap=self.current_lap,
-                              lap_time=self.race_time - self.lap_start_time))
+                lap_time = self.race_time - self.lap_start_time
+                pg.event.post(
+                    pg.event.Event(LAP_COMPLETED,
+                    lap=self.current_lap,
+                    lap_time=lap_time)
+                )
+                self.lap_times.append(lap_time)
                 self.lap_start_time = self.race_time
                 self.current_lap += 1
                 self.current_checkpoint = 0
@@ -101,6 +110,7 @@ class Race(Scene):
                 number = checkpoint.properties.get("number")
                 if number == self.current_checkpoint + 1:
                     self.current_checkpoint = number
+
 
     def update(self, dt):
         self.map.update(dt)
@@ -133,6 +143,7 @@ class Race(Scene):
         self.game.debug_values["lap"] = f"{self.current_lap}/{self.max_laps}"
         self.game.debug_values["checkpoint"] = f"{self.current_checkpoint}"
 
+
     def blit_scrolling(self, screen, image, rate, y):
         # rate 1.0 = moves with the ground, < 1.0 = farther away
         image_width = image.get_width()
@@ -141,6 +152,7 @@ class Race(Scene):
         while x < screen.get_width():  # tile if image is narrower than screen
             screen.blit(image, (x, y))
             x += image_width
+
 
     def draw(self, screen):
         self.blit_scrolling(screen, self.game.background, self.game.SKY_SCROLL_RATE, 0)
@@ -163,7 +175,24 @@ class Race(Scene):
             shade = pg.Surface(screen.get_size(), pg.SRCALPHA)
             shade.fill((0, 0, 0, 140))
             screen.blit(shade, (0, 0))
+
             center_x = screen.get_width() // 2
+            line_height = 12
+
+            lines = [f"Total {HUD.format_time(self.race_time)}"]
+            lines += [f"Lap {lap} {HUD.format_time(t)}" for lap, t in enumerate(self.lap_times, start=1)]
+            text_x = center_x - max(self.game.font.size(line)[0] for line in lines) // 2
+
             self.draw_text(screen, "FINISH!", (center_x, 40), "yellow")
-            self.draw_text(screen, f"Time: {HUD.format_time(self.race_time)}", (center_x, 65))
-            self.draw_text(screen, "Enter: continue", (center_x, 110))
+
+            fastest_lap = self.lap_times.index(min(self.lap_times)) + 1
+            y = 65
+            for index, line in enumerate(lines):
+                color = "gold" if index == fastest_lap else "white"
+                line_rect = self.draw_text(screen, line, (text_x, y), color, anchor="midleft")
+                if index == fastest_lap:
+                    star_rect = self.game.star_image.get_rect(midleft=(line_rect.right + 2, line_rect.centery))
+                    screen.blit(self.game.star_image, star_rect)
+                y += line_height
+
+            self.draw_text(screen, "Enter: continue", (center_x, y + line_height))

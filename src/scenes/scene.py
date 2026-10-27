@@ -25,10 +25,11 @@ class Scene:
     def draw(self, screen):
         pass
 
-    def draw_text(self, screen, text, center, color="white"):
+    def draw_text(self, screen, text, pos, color="white", anchor="center"):
         # no antialiasing to keep hard pixel edges
         shadow = self.game.font.render(text, False, pg.Color("black"))
         text_surface = self.game.font.render(text, False, pg.Color(color))
-        rect = text_surface.get_rect(center=center)
+        rect = text_surface.get_rect(**{anchor: pos})
         screen.blit(shadow, rect.move(1, 1))
         screen.blit(text_surface, rect)
+        return rect

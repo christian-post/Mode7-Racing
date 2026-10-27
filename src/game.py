@@ -78,6 +78,8 @@ class Game:
                 path.join(assets_folder, "dirt.png")).convert_alpha()
         self.traffic_light_images = pg.image.load(
                 path.join(assets_folder, "lights.png")).convert_alpha()
+        self.star_image = pg.image.load(
+                path.join(assets_folder, "star.png")).convert_alpha()
 
         self.font = pg.font.Font(path.join(assets_folder, "PressStart2P.ttf"), 8)  # menu text
 
