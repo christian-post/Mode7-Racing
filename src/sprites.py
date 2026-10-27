@@ -314,10 +314,6 @@ class Billboard(pg.sprite.Sprite):
 
         camera = player.pos - vec(mode7.kart_ground_distance(), 0).rotate_rad(player.angle)
         relative = self.map_pos - camera
-        # wrap to nearest copy, map tiles infinitely
-        map_w, map_h = mode7.rect.size
-        relative.x = (relative.x + map_w / 2) % map_w - map_w / 2
-        relative.y = (relative.y + map_h / 2) % map_h - map_h / 2
 
         forward_dir = vec(cos(player.angle), sin(player.angle))
         right_dir = vec(-forward_dir.y, forward_dir.x)

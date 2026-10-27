@@ -64,6 +64,7 @@ class Game:
 
         self.fps = self.FPS  # make instance attribut in case this gets changed by settings etc
         self.all_sprites = pg.sprite.Group()
+        self.billboards = pg.sprite.Group()
         self.running = True
         
         player_image_strip = pg.image.load(
@@ -77,8 +78,6 @@ class Game:
                 path.join(assets_folder, "dirt.png")).convert_alpha()
         self.traffic_light_images = pg.image.load(
                 path.join(assets_folder, "lights.png")).convert_alpha()
-        self.bush_image = pg.image.load(
-                path.join(assets_folder, "bush.png")).convert_alpha()  # TODO: unused
 
         self.font = pg.font.Font(path.join(assets_folder, "PressStart2P.ttf"), 8)  # menu text
 

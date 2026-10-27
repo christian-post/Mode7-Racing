@@ -6,7 +6,7 @@ import pygame as pg
 from src.scenes.scene import Scene
 from src.render import Mode7
 from src.course import Course
-from src.sprites import Player, TrafficLight
+from src.sprites import Player, TrafficLight, Billboard
 from src.hud import HUD, LAP_COMPLETED
 import src.utils as utils
 
@@ -41,21 +41,21 @@ class Race(Scene):
         self.num_checkpoints = 0
 
     def startup(self):
-        game = self.game
         # sprites, Mode7 and Course queries reach the race objects through game
-        game.all_sprites = pg.sprite.Group()
-        game.started = False
-        game.course = None
+        self.game.all_sprites = pg.sprite.Group()
+        self.game.billboards = pg.sprite.Group()
+        self.game.started = False
+        self.game.course = None
 
         try:
-            self.course = Course(game.assets_folder, self.course_name)
+            self.course = Course(self.game.assets_folder, self.course_name)
         except Exception:
             traceback.print_exc()
-        game.course = self.course
+        self.game.course = self.course
 
-        self.player = game.player = Player(game)
-        self.traffic_light = TrafficLight(game, (100, 60))
-        self.map = game.map = Mode7(game, self.course.image if self.course else None)
+        self.player = self.game.player = Player(self.game)
+        self.traffic_light = TrafficLight(self.game, (100, 60))
+        self.map = self.game.map = Mode7(self.game, self.course.image if self.course else None)
 
         if self.course:
             start_pos = self.course.get_start_position(8)
@@ -64,12 +64,16 @@ class Race(Scene):
             self.checkpoints = self.course.game_object_data.get("checkpoints", [])
             self.num_checkpoints = max(
                 (obj.properties.get("number", 0) for obj in self.checkpoints), default=0)
+            for obj in self.course.game_object_data.get("sprites", []):
+                if obj.type == "billboard":
+                    Billboard(self.game, obj)
 
         # HUD reads lap/time/player/course from the race scene
         self.hud = HUD(self, self.course.tiled_map if self.course else None)
 
     def cleanup(self):
         self.game.all_sprites.empty()
+        self.game.billboards.empty()
         self.game.started = False
 
     def get_event(self, event):
@@ -99,34 +103,35 @@ class Race(Scene):
                     self.current_checkpoint = number
 
     def update(self, dt):
-        game = self.game
         self.map.update(dt)
 
         if self.phase == RacePhase.COUNTDOWN:
-            game.all_sprites.update(dt)
+            self.game.all_sprites.update(dt)
             if self.traffic_light.done:
                 self.phase = RacePhase.RACING
-                game.started = True
+                self.game.started = True
 
         elif self.phase == RacePhase.RACING:
             self.race_time += dt
-            game.all_sprites.update(dt)
+            self.game.all_sprites.update(dt)
             self.check_lap_progress()
             if self.current_lap > self.max_laps:
                 self.phase = RacePhase.FINISHED
 
         elif self.phase == RacePhase.FINISHED:
             # world keeps running, player is frozen
-            for sprite in game.all_sprites:
+            for sprite in self.game.all_sprites:
                 if sprite is not self.player:
                     sprite.update(dt)
 
-        game.debug_values["phase"] = self.phase.name
-        game.debug_values["pos"] = f"{self.player.pos.x:.3f}, {self.player.pos.y:.3f}"
-        game.debug_values["last_road_pos"] = (
+        self.game.billboards.update(dt)
+
+        self.game.debug_values["phase"] = self.phase.name
+        self.game.debug_values["pos"] = f"{self.player.pos.x:.3f}, {self.player.pos.y:.3f}"
+        self.game.debug_values["last_road_pos"] = (
             f"{self.player.last_road_pos.x:.3f}, {self.player.last_road_pos.y:.3f}")
-        game.debug_values["lap"] = f"{self.current_lap}/{self.max_laps}"
-        game.debug_values["checkpoint"] = f"{self.current_checkpoint}"
+        self.game.debug_values["lap"] = f"{self.current_lap}/{self.max_laps}"
+        self.game.debug_values["checkpoint"] = f"{self.current_checkpoint}"
 
     def blit_scrolling(self, screen, image, rate, y):
         # rate 1.0 = moves with the ground, < 1.0 = farther away
@@ -138,12 +143,20 @@ class Race(Scene):
             x += image_width
 
     def draw(self, screen):
-        game = self.game
-        self.blit_scrolling(screen, game.background, game.SKY_SCROLL_RATE, 0)
-        self.blit_scrolling(screen, game.mountains, game.MOUNTAIN_SCROLL_RATE, game.mountains_y)
+        self.blit_scrolling(screen, self.game.background, self.game.SKY_SCROLL_RATE, 0)
+        self.blit_scrolling(screen, self.game.mountains, self.game.MOUNTAIN_SCROLL_RATE, self.game.mountains_y)
         self.map.draw(screen)
-        for sprite in game.all_sprites:
+        # painting order = billboards behind the kart, sprites, billboards in front
+        kart_depth = self.map.kart_ground_distance()
+        billboards = sorted(self.game.billboards, key=lambda b: b.depth, reverse=True)
+        for billboard in billboards:
+            if billboard.depth >= kart_depth:
+                billboard.draw(screen)
+        for sprite in self.game.all_sprites:
             sprite.draw(screen)
+        for billboard in billboards:
+            if billboard.depth < kart_depth:
+                billboard.draw(screen)
         self.hud.draw(screen)
 
         if self.phase == RacePhase.FINISHED:
