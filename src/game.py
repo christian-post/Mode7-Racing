@@ -174,8 +174,7 @@ class Game:
         self.all_sprites.update(dt)
 
         # check for lap progression
-        map_w, map_h = self.course.image.get_size()
-        pixel_pos = vec(self.player.pos.x % map_w, self.player.pos.y % map_h)
+        pixel_pos = self.player.pos
         for obj in self.course.game_object_data["checkpoints"]:
             if utils.point_in_polygon(pixel_pos, obj.points):
                 if obj.name == "finish" and self.current_checkpoint == self.num_checkpoints:

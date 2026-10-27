@@ -25,6 +25,7 @@ class Course:
     def __init__(self, folder, name, road_layer="road",
                  killzone_layer="killzone", offroad_speed=0.3):
         self.name = name
+        self.offroad_speed = offroad_speed
         self.tiled_map = load_pygame(path.join(folder, f"{name}.tmx"))
         self.pixel_width = self.tiled_map.width * self.tiled_map.tilewidth
         self.pixel_height = self.tiled_map.height * self.tiled_map.tileheight
@@ -43,7 +44,7 @@ class Course:
     def _render_tiles(self):
         image = pg.Surface((self.pixel_width, self.pixel_height))
         for layer in self.tiled_map.visible_layers:
-            if isinstance(layer, TiledTileLayer):
+            if isinstance(layer, TiledTileLayer) and not layer.name == "killzone":
                 for x, y, tile_image in layer.tiles():
                     if tile_image:
                         image.blit(tile_image, (x * self.tiled_map.tilewidth,
@@ -83,17 +84,19 @@ class Course:
 
     # --- tilemap queries ---
 
-    def _tile_at(self, grid, pos):
+    def _tile_at(self, grid, pos, outside_value):
         grid_width, grid_height = grid.shape
-        tile_x = int(pos.x // self.tiled_map.tilewidth) % grid_width
-        tile_y = int(pos.y // self.tiled_map.tileheight) % grid_height
+        tile_x = int(pos.x // self.tiled_map.tilewidth)
+        tile_y = int(pos.y // self.tiled_map.tileheight)
+        if not (0 <= tile_x < grid_width and 0 <= tile_y < grid_height):
+            return outside_value
         return grid[tile_x, tile_y]
 
     def ground_speed_at(self, pos):
-        return self._tile_at(self.speed_grid, pos)
+        return self._tile_at(self.speed_grid, pos, self.offroad_speed)
 
     def is_on_road(self, pos):
         return self.ground_speed_at(pos) == 1.0
 
     def in_killzone(self, pos):
-        return self._tile_at(self.killzone_grid, pos)
+        return self._tile_at(self.killzone_grid, pos, True)

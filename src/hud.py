@@ -102,8 +102,8 @@ class HUD:
         p = self.game.player
         map_w = self.game.course.pixel_width
         map_h = self.game.course.pixel_height
-        dot = vec(rect.x + (p.pos.x % map_w) / map_w * mw,
-                rect.y + (p.pos.y % map_h) / map_h * mh)
+        dot = vec(rect.x + min(max(p.pos.x / map_w, 0), 1) * mw,
+                  rect.y + min(max(p.pos.y / map_h, 0), 1) * mh)
         tip = dot + vec(2, 0).rotate_rad(p.angle)
         screen.set_at((int(tip.x), int(tip.y)), (255, 200, 60))
         pg.draw.rect(screen, (255, 60, 60), (int(dot.x) - 1, int(dot.y) - 1, 2, 2))

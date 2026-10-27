@@ -27,6 +27,13 @@ class Mode7:
         
         # Convert source image to numpy array once
         self.image_array = pg.surfarray.array3d(self.image)
+
+        # tile drawn outside the map (top left map tile by default)
+        course = self.game.course
+        fill_w = course.tiled_map.tilewidth if course else 32
+        fill_h = course.tiled_map.tileheight if course else 32
+        fill_tile = self.image.subsurface((0, 0, fill_w, fill_h))
+        self.fill_array = pg.surfarray.array3d(fill_tile)
         
         self.near = 16.0
         self.far = 40.0
@@ -67,12 +74,13 @@ class Mode7:
         course = self.game.course
         tile_w = course.tiled_map.tilewidth if course else 32
         tile_h = course.tiled_map.tileheight if course else 32
-        player_tile_x = int(player.pos.x % self.rect.w) // tile_w
-        player_tile_y = int(player.pos.y % self.rect.h) // tile_h
+        player_tile_x = int(player.pos.x) // tile_w
+        player_tile_y = int(player.pos.y) // tile_h
         
         render_mode7(
             screen_array,
             self.image_array,
+            self.fill_array,
             screen_rect.w, screen_rect.h,
             self.rect.w, self.rect.h,
             far_x1, far_y1, near_x1, near_y1,
@@ -107,7 +115,8 @@ class Mode7:
 
 
 @njit(cache=True, fastmath=True)
-def render_mode7(screen_array, image_array, screen_w, screen_h,
+def render_mode7(screen_array, image_array, fill_array,
+                 screen_w, screen_h,
                  image_w, image_h,
                  far_x1, far_y1, near_x1, near_y1,
                  far_x2, far_y2, near_x2, near_y2,
@@ -116,6 +125,8 @@ def render_mode7(screen_array, image_array, screen_w, screen_h,
                  player_tile_x, player_tile_y,
                  highlight):
     horizon_offset = int(screen_h * horizon)
+    fill_w = fill_array.shape[0]
+    fill_h = fill_array.shape[1]
 
     for y in range(screen_h):
         y_screen = y + horizon_offset
@@ -137,18 +148,17 @@ def render_mode7(screen_array, image_array, screen_w, screen_h,
         sample_y = start_y
 
         for x in range(screen_w):
-            # wrap pixel coords for infinite tiling
-            tex_x = int(math.floor(sample_x)) % image_w
-            tex_y = int(math.floor(sample_y)) % image_h
-            if tex_x < 0:
-                tex_x += image_w
-            if tex_y < 0:
-                tex_y += image_h
+            tex_x = int(math.floor(sample_x))
+            tex_y = int(math.floor(sample_y))
 
-            tile_x = tex_x // tile_w
-            tile_y = tex_y // tile_h
-
-            if highlight and tile_x == player_tile_x and tile_y == player_tile_y:
+            if tex_x < 0 or tex_x >= image_w or tex_y < 0 or tex_y >= image_h:
+                # outside the map -> repeat fill tile
+                fx = tex_x % fill_w
+                fy = tex_y % fill_h
+                screen_array[x, y_screen, 0] = fill_array[fx, fy, 0]
+                screen_array[x, y_screen, 1] = fill_array[fx, fy, 1]
+                screen_array[x, y_screen, 2] = fill_array[fx, fy, 2]
+            elif highlight and tex_x // tile_w == player_tile_x and tex_y // tile_h == player_tile_y:
                 screen_array[x, y_screen, 0] = (int(image_array[tex_x, tex_y, 0]) + 255) // 2
                 screen_array[x, y_screen, 1] = int(image_array[tex_x, tex_y, 1]) // 2
                 screen_array[x, y_screen, 2] = int(image_array[tex_x, tex_y, 2]) // 2
