@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="100" height="100" tilewidth="32" tileheight="32" infinite="0" nextlayerid="8" nextobjectid="25">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="100" height="100" tilewidth="32" tileheight="32" infinite="0" nextlayerid="8" nextobjectid="76">
  <tileset firstgid="1" source="racetrack_tiles_32.tsx"/>
  <layer id="1" name="ground" width="100" height="100">
   <data encoding="csv">
@@ -314,8 +314,8 @@
 </data>
  </layer>
  <objectgroup id="5" name="checkpoints">
-  <object id="1" name="finish" x="2640" y="864">
-   <polygon points="-16,0 528,0 528,32 -16,32"/>
+  <object id="1" name="finish" x="2640" y="872">
+   <polygon points="-16,0 528,0 528,8 -16,8"/>
   </object>
   <object id="3" name="checkpoint" x="2336" y="296">
    <properties>
@@ -432,5 +432,57 @@
    </properties>
   </object>
  </objectgroup>
- <objectgroup id="7" name="sprites"/>
+ <objectgroup id="7" name="sprites">
+  <object id="25" name="bush" type="billboard" x="3088" y="784" width="32" height="32"/>
+  <object id="26" name="bush" type="billboard" x="3104" y="616" width="32" height="32"/>
+  <object id="27" name="bush" type="billboard" x="2608" y="712" width="32" height="32"/>
+  <object id="28" name="bush" type="billboard" x="3072" y="344" width="32" height="32"/>
+  <object id="29" name="bush" type="billboard" x="2752" y="80" width="32" height="32"/>
+  <object id="30" name="bush" type="billboard" x="2432" y="176" width="32" height="32"/>
+  <object id="31" name="bush" type="billboard" x="2368" y="80" width="32" height="32"/>
+  <object id="32" name="bush" type="billboard" x="1936" y="664" width="32" height="32"/>
+  <object id="33" name="bush" type="billboard" x="1512" y="232" width="32" height="32"/>
+  <object id="34" name="bush" type="billboard" x="1400" y="400" width="32" height="32"/>
+  <object id="35" name="bush" type="billboard" x="1216" y="232" width="32" height="32"/>
+  <object id="36" name="bush" type="billboard" x="936" y="904" width="32" height="32"/>
+  <object id="37" name="bush" type="billboard" x="744" y="784" width="32" height="32"/>
+  <object id="38" name="bush" type="billboard" x="632" y="864" width="32" height="32"/>
+  <object id="39" name="bush" type="billboard" x="368" y="160" width="32" height="32"/>
+  <object id="40" name="bush" type="billboard" x="72" y="408" width="32" height="32"/>
+  <object id="41" name="bush" type="billboard" x="72" y="776" width="32" height="32"/>
+  <object id="42" name="bush" type="billboard" x="64" y="1232" width="32" height="32"/>
+  <object id="43" name="bush" type="billboard" x="112" y="1456" width="32" height="32"/>
+  <object id="44" name="bush" type="billboard" x="552" y="1560" width="32" height="32"/>
+  <object id="45" name="bush" type="billboard" x="936" y="1528" width="32" height="32"/>
+  <object id="46" name="bush" type="billboard" x="1088" y="1624" width="32" height="32"/>
+  <object id="47" name="bush" type="billboard" x="1648" y="1440" width="32" height="32"/>
+  <object id="48" name="bush" type="billboard" x="704" y="1136" width="32" height="32"/>
+  <object id="49" name="bush" type="billboard" x="1496" y="1064" width="32" height="32"/>
+  <object id="50" name="bush" type="billboard" x="2064" y="968" width="32" height="32"/>
+  <object id="51" name="bush" type="billboard" x="2400" y="1016" width="32" height="32"/>
+  <object id="52" name="bush" type="billboard" x="2480" y="1104" width="32" height="32"/>
+  <object id="53" name="bush" type="billboard" x="2480" y="1504" width="32" height="32"/>
+  <object id="54" name="bush" type="billboard" x="2352" y="1728" width="32" height="32"/>
+  <object id="55" name="bush" type="billboard" x="2512" y="1760" width="32" height="32"/>
+  <object id="56" name="bush" type="billboard" x="2280" y="2016" width="32" height="32"/>
+  <object id="57" name="bush" type="billboard" x="1968" y="1976" width="32" height="32"/>
+  <object id="58" name="bush" type="billboard" x="1936" y="2200" width="32" height="32"/>
+  <object id="59" name="bush" type="billboard" x="2008" y="2392" width="32" height="32"/>
+  <object id="60" name="bush" type="billboard" x="2024" y="2680" width="32" height="32"/>
+  <object id="61" name="bush" type="billboard" x="2328" y="2616" width="32" height="32"/>
+  <object id="62" name="bush" type="billboard" x="2176" y="2280" width="32" height="32"/>
+  <object id="63" name="bush" type="billboard" x="40" y="1960" width="32" height="32"/>
+  <object id="64" name="bush" type="billboard" x="48" y="2440" width="32" height="32"/>
+  <object id="65" name="bush" type="billboard" x="88" y="3064" width="32" height="32"/>
+  <object id="66" name="bush" type="billboard" x="640" y="2728" width="32" height="32"/>
+  <object id="67" name="bush" type="billboard" x="896" y="2544" width="32" height="32"/>
+  <object id="68" name="bush" type="billboard" x="1296" y="3112" width="32" height="32"/>
+  <object id="69" name="bush" type="billboard" x="1576" y="3080" width="32" height="32"/>
+  <object id="70" name="bush" type="billboard" x="2776" y="3080" width="32" height="32"/>
+  <object id="71" name="bush" type="billboard" x="3008" y="2856" width="32" height="32"/>
+  <object id="72" name="bush" type="billboard" x="3096" y="2696" width="32" height="32"/>
+  <object id="73" name="bush" type="billboard" x="3056" y="2032" width="32" height="32"/>
+  <object id="74" name="bush" type="billboard" x="3096" y="1432" width="32" height="32"/>
+  <object id="75" name="bush" type="billboard" x="3096" y="1432" width="32" height="32"/>
+ </objectgroup>
 </map>

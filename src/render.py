@@ -43,7 +43,7 @@ class Mode7:
     def kart_ground_distance(self):
         # world distance from camera to the ground point under the kart sprite
         screen_h = self.game.game_screen_rect.h
-        horizon_offset = int(screen_h * self.game.HORIZON)
+        horizon_offset = int(screen_h * self.game.config["Visuals.horizon"])
         row = self.game.player.rect.bottom - horizon_offset
         depth = row / screen_h
         return (self.near + (self.far - self.near) / depth) * cos(self.fov_half)
@@ -84,7 +84,7 @@ class Mode7:
             self.rect.w, self.rect.h,
             far_x1, far_y1, near_x1, near_y1,
             far_x2, far_y2, near_x2, near_y2,
-            self.game.HORIZON,
+            self.game.config["Visuals.horizon"],
             tile_w, tile_h,
             player_tile_x, player_tile_y, 
             self.game.show_debug

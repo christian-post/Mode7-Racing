@@ -1,0 +1,41 @@
+[Video]
+display_w = 800
+display_h = 600
+game_screen_w = 200
+game_screen_h = 150
+fps = 60
+
+[Visuals]
+horizon = 0.2
+sky_image_scale = 0.2
+mountain_image_scale = 0.5
+sky_scroll_rate = 1.0
+mountain_scroll_rate = 0.6
+menu_font_size = 8
+dust_cloud_interval = 0.2
+
+[Hud]
+font_size = 8
+minimap_size = 36
+speed_bars = 6
+speed_bar_w = 2
+speed_bar_gap = 1
+speed_bar_min_h = 2
+speed_bar_step_h = 1
+lap_time_showing_duration = 5
+
+[Gameplay]
+offroad_speed = 0.3
+player_speed = 1800
+steer_anim_speed = 10
+turn_force_fast = 0.00625
+turn_force_slow = 0.015625
+backwards_speed_factor = 0.4
+friction = 0.9
+ai_path_radius = 0.8
+ai_max_force = 5
+ai_look_ahead_time = 0.5
+ai_target_ahead = 40
+
+[Debug]
+font_size = 16

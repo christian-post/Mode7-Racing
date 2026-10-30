@@ -36,6 +36,7 @@ class Course:
         self.killzone_grid = self._build_grid(killzone_layer, True, False,
                                               bool)
         self.start_positions = self._load_start_positions()
+        self.path_points = self._load_path()
 
         self.game_object_data = {layer.name: list(layer) for layer in self.tiled_map.objectgroups}
 
@@ -51,6 +52,7 @@ class Course:
                                                 y * self.tiled_map.tileheight))
         return image
 
+
     def _build_grid(self, layer_name, tile_value, empty_value, dtype):
         grid = np.full((self.tiled_map.width, self.tiled_map.height),
                        empty_value, dtype=dtype)
@@ -63,6 +65,7 @@ class Course:
             if gid:
                 grid[x, y] = tile_value
         return grid
+
 
     def _load_start_positions(self):
         # position number -> rect center in normalized map coords (0..1)
@@ -78,6 +81,20 @@ class Course:
                 continue
             start_positions[number] = vec(obj.x + obj.width / 2, obj.y + obj.height / 2)
         return start_positions
+
+
+    def _load_path(self, layer_name="path"):
+        # returns the polygon points of the first object in the path layer
+        try:
+            layer = self.tiled_map.get_layer_by_name(layer_name)
+        except ValueError:
+            print(f"Warning: course '{self.name}' has no layer '{layer_name}'")
+            return []
+        for obj in layer:
+            if hasattr(obj, "points"):
+                return [vec(point) for point in obj.points]
+        return []
+    
 
     def get_start_position(self, number):
         return self.start_positions.get(number)

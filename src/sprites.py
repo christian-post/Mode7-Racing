@@ -22,7 +22,7 @@ class Player(pg.sprite.Sprite):
         super().__init__(game.all_sprites)
         self.game = game
 
-        self.angle = -1.54
+        self.angle = -1.54  # TODO should depend on teh track's starting line orientation
         self.acc = vec()
         self.vel = vec()
         self.pos = vec(2892.8, 1216.0)  # fallback if course has no start positions
@@ -149,6 +149,7 @@ class Player(pg.sprite.Sprite):
             self.pos += self.vel * dt
             
             self.acc *= 0
+            # apply friction
             self.vel *= 0.9
     
             
@@ -310,7 +311,7 @@ class Billboard(pg.sprite.Sprite):
         mode7 = self.game.map
         player = self.game.player
         screen_rect = self.game.game_screen_rect
-        horizon_offset = int(screen_rect.h * self.game.HORIZON)
+        horizon_offset = int(screen_rect.h * self.game.config["Visuals.horizon"])
 
         camera = player.pos - vec(mode7.kart_ground_distance(), 0).rotate_rad(player.angle)
         relative = self.map_pos - camera
@@ -344,3 +345,89 @@ class Billboard(pg.sprite.Sprite):
     def draw(self, screen):
         if self.visible:
             screen.blit(self.image, self.rect)
+
+
+class PathFollower(Billboard):
+    # billboard that steers along a closed polygon (Nature of Code path following)
+    def __init__(self, game, path_points, image_name="bush", world_width=12):
+        pg.sprite.Sprite.__init__(self, game.billboards)
+        self.game = game
+        self.name = image_name
+        self.world_width = world_width
+        if self.name not in Billboard.base_images:
+            Billboard.base_images[self.name] = pg.image.load(
+                path.join(game.assets_folder, f"{self.name}.png")).convert_alpha()
+        self.base_image = Billboard.base_images[self.name]
+        self.image = self.base_image
+        self.rect = self.image.get_rect()
+        self.depth = 0
+        self.visible = False
+
+        self.path_points = [vec(point) for point in path_points]
+        self.path_radius = 8       # px, no steering while inside
+        # player's terminal speed on road: v = friction * (v + speed / FPS)
+        friction = 0.9
+        player_top_speed = friction * game.player.speed / game.config["Video.fps"] / (1 - friction)
+        speed_factor = 1.2
+        self.max_speed = player_top_speed * speed_factor
+        self.max_force = 5 * self.max_speed 
+        self.look_ahead_time = 0.2  # s
+        self.target_ahead = 40      # px along the path
+
+        # self.map_pos = self.path_points[0].copy()
+        self.map_pos = vec(1168, 689)
+        start_direction = self.path_points[1] - self.path_points[0]
+        self.vel = start_direction.normalize() * self.max_speed
+        self.acc = vec()
+
+
+    def get_normal_point(self, point, segment_start, segment_end):
+        # closest point to 'point' on the segment
+        segment = segment_end - segment_start
+        projection = (point - segment_start).dot(segment) / segment.length_squared()
+        projection = max(0.0, min(1.0, projection))
+        return segment_start + segment * projection
+
+
+    def follow_path(self):
+        predicted_pos = self.map_pos + self.vel * self.look_ahead_time
+        closest_distance = float("inf")
+        target = None
+        point_count = len(self.path_points)
+        for i in range(point_count):
+            segment_start = self.path_points[i]
+            segment_end = self.path_points[(i + 1) % point_count]
+            normal_point = self.get_normal_point(predicted_pos, segment_start, segment_end)
+            distance = predicted_pos.distance_to(normal_point)
+            if distance < closest_distance:
+                closest_distance = distance
+                segment_direction = (segment_end - segment_start).normalize()
+                target = normal_point + segment_direction * self.target_ahead
+
+        if closest_distance > self.path_radius:
+            self.seek(target)
+
+
+    def seek(self, target):
+        desired = target - self.map_pos
+        if desired.length_squared() == 0:
+            return
+        desired.scale_to_length(self.max_speed)
+        steer = desired - self.vel
+        if steer.length() > self.max_force:
+            steer.scale_to_length(self.max_force)
+        self.acc += steer
+
+
+    def update(self, dt):
+        if self.game.started:
+            self.game.debug_values["player_speed"] = f"{self.game.player.vel.length():.0f}"
+            self.game.debug_values["bush_speed"] = f"{self.vel.length():.0f}"
+            self.follow_path()
+            self.vel += self.acc * dt
+            if self.vel.length() > self.max_speed:
+                self.vel.scale_to_length(self.max_speed)
+            # self.vel.scale_to_length(self.max_speed)
+            self.map_pos += self.vel * dt
+            self.acc *= 0
+        super().update(dt)  # projection to screen

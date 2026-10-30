@@ -6,7 +6,7 @@ import pygame as pg
 from src.scenes.scene import Scene
 from src.render import Mode7
 from src.course import Course
-from src.sprites import Player, TrafficLight, Billboard
+from src.sprites import Player, TrafficLight, Billboard, PathFollower
 from src.hud import HUD, LAP_COMPLETED
 import src.utils as utils
 
@@ -69,6 +69,9 @@ class Race(Scene):
             for obj in self.course.game_object_data.get("sprites", []):
                 if obj.type == "billboard":
                     Billboard(self.game, obj)
+            for obj in self.course.game_object_data.get("path", []):
+                if obj.type == "path":
+                    PathFollower(self.game, obj.points)
 
         # HUD reads lap/time/player/course from the race scene
         self.hud = HUD(self, self.course.tiled_map if self.course else None)
@@ -155,8 +158,8 @@ class Race(Scene):
 
 
     def draw(self, screen):
-        self.blit_scrolling(screen, self.game.background, self.game.SKY_SCROLL_RATE, 0)
-        self.blit_scrolling(screen, self.game.mountains, self.game.MOUNTAIN_SCROLL_RATE, self.game.mountains_y)
+        self.blit_scrolling(screen, self.game.background, self.game.config["Visuals.sky_scroll_rate"], 0)
+        self.blit_scrolling(screen, self.game.mountains, self.game.config["Visuals.mountain_scroll_rate"], self.game.mountains_y)
         self.map.draw(screen)
         # painting order = billboards behind the kart, sprites, billboards in front
         kart_depth = self.map.kart_ground_distance()
