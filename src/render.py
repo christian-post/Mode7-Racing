@@ -7,6 +7,8 @@ vec = pg.Vector2
 
 
 class Mode7:
+    KART_SCREEN_BOTTOM = 116  # bottom of the locked kart sprite (84 + 32)
+
     def __init__(self, game, sprite=None, size=(1024, 1024)):
         self.game = game
         if sprite:
@@ -44,7 +46,7 @@ class Mode7:
         # world distance from camera to the ground point under the kart sprite
         screen_h = self.game.game_screen_rect.h
         horizon_offset = int(screen_h * self.game.config["Visuals.horizon"])
-        row = self.game.player.rect.bottom - horizon_offset
+        row = self.KART_SCREEN_BOTTOM - horizon_offset
         depth = row / screen_h
         return (self.near + (self.far - self.near) / depth) * cos(self.fov_half)
 
@@ -53,18 +55,18 @@ class Mode7:
         screen_rect = screen.get_rect()
         player = self.game.player
 
-        # camera sits behind the kart
-        camera = player.pos - vec(self.kart_ground_distance(), 0).rotate_rad(player.angle)
+        player = self.game.player  # used for the debug tile highlight
+        camera = self.game.camera
 
-        far_x1 = camera.x + cos(player.angle - self.fov_half) * self.far
-        far_y1 = camera.y + sin(player.angle - self.fov_half) * self.far
-        near_x1 = camera.x + cos(player.angle - self.fov_half) * self.near
-        near_y1 = camera.y + sin(player.angle - self.fov_half) * self.near
+        far_x1 = camera.pos.x + cos(camera.angle - self.fov_half) * self.far
+        far_y1 = camera.pos.y + sin(camera.angle - self.fov_half) * self.far
+        near_x1 = camera.pos.x + cos(camera.angle - self.fov_half) * self.near
+        near_y1 = camera.pos.y + sin(camera.angle - self.fov_half) * self.near
 
-        far_x2 = camera.x + cos(player.angle + self.fov_half) * self.far
-        far_y2 = camera.y + sin(player.angle + self.fov_half) * self.far
-        near_x2 = camera.x + cos(player.angle + self.fov_half) * self.near
-        near_y2 = camera.y + sin(player.angle + self.fov_half) * self.near
+        far_x2 = camera.pos.x + cos(camera.angle + self.fov_half) * self.far
+        far_y2 = camera.pos.y + sin(camera.angle + self.fov_half) * self.far
+        near_x2 = camera.pos.x + cos(camera.angle + self.fov_half) * self.near
+        near_y2 = camera.pos.y + sin(camera.angle + self.fov_half) * self.near
         
         # Render using compiled function
         screen_array = pg.surfarray.pixels3d(screen)

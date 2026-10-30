@@ -79,6 +79,7 @@ class Game:
 
         # race objects, set by the Race scene (sprites access them through game)
         self.player = None
+        self.camera = None
         self.course = None
         self.map = None
         self.started = False  # if the race has started (starts after green light)

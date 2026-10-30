@@ -5,6 +5,7 @@ import pygame as pg
 
 from src.scenes.scene import Scene
 from src.render import Mode7
+from src.camera import Camera, FollowMode, OrbitMode
 from src.course import Course
 from src.sprites import Player, TrafficLight, Billboard, PathFollower
 from src.hud import HUD, LAP_COMPLETED
@@ -36,6 +37,7 @@ class Race(Scene):
         self.course = None
         self.player = None
         self.map = None
+        self.camera = None
         self.hud = None
         self.traffic_light = None
         self.checkpoints = []
@@ -58,6 +60,7 @@ class Race(Scene):
         self.player = self.game.player = Player(self.game)
         self.traffic_light = TrafficLight(self.game, (100, 60))
         self.map = self.game.map = Mode7(self.game, self.course.image if self.course else None)
+        self.camera = self.game.camera = Camera(self.game, target=self.player)
 
         if self.course:
             start_pos = self.course.get_start_position(8)
@@ -91,6 +94,11 @@ class Race(Scene):
             self.game.switch_scene("CourseSelect")
         elif event.key == pg.K_RETURN and self.phase == RacePhase.FINISHED:
             self.game.switch_scene("CourseSelect")
+        elif event.key == pg.K_c:  # debug: toggle camera mode
+            if isinstance(self.camera.mode, OrbitMode):
+                self.camera.set_mode(FollowMode())
+            else:
+                self.camera.set_mode(OrbitMode())
 
 
     def check_lap_progress(self):
@@ -120,6 +128,7 @@ class Race(Scene):
 
         if self.phase == RacePhase.COUNTDOWN:
             self.game.all_sprites.update(dt)
+            self.game.billboards.update(dt)
             if self.traffic_light.done:
                 self.phase = RacePhase.RACING
                 self.game.started = True
@@ -127,18 +136,24 @@ class Race(Scene):
         elif self.phase == RacePhase.RACING:
             self.race_time += dt
             self.game.all_sprites.update(dt)
+            self.game.billboards.update(dt)
             self.check_lap_progress()
             if self.current_lap > self.max_laps:
                 self.phase = RacePhase.FINISHED
 
         elif self.phase == RacePhase.FINISHED:
             # world keeps running, player is frozen
-            for sprite in self.game.all_sprites:
-                if sprite is not self.player:
-                    sprite.update(dt)
+            self.game.all_sprites.update(dt)
+            for billboard in self.game.billboards:
+                if billboard is not self.player:
+                    billboard.update(dt)
 
-        self.game.billboards.update(dt)
+        # after all movement, so floor and billboards use the same camera
+        self.camera.update(dt)
+        for billboard in self.game.billboards:
+            billboard.project()
 
+        # debugging
         self.game.debug_values["phase"] = self.phase.name
         self.game.debug_values["pos"] = f"{self.player.pos.x:.3f}, {self.player.pos.y:.3f}"
         self.game.debug_values["last_road_pos"] = (
@@ -161,17 +176,11 @@ class Race(Scene):
         self.blit_scrolling(screen, self.game.background, self.game.config["Visuals.sky_scroll_rate"], 0)
         self.blit_scrolling(screen, self.game.mountains, self.game.config["Visuals.mountain_scroll_rate"], self.game.mountains_y)
         self.map.draw(screen)
-        # painting order = billboards behind the kart, sprites, billboards in front
-        kart_depth = self.map.kart_ground_distance()
-        billboards = sorted(self.game.billboards, key=lambda b: b.depth, reverse=True)
-        for billboard in billboards:
-            if billboard.depth >= kart_depth:
-                billboard.draw(screen)
+        # world sprites far to near, then screen sprites (traffic light, particles)
+        for billboard in sorted(self.game.billboards, key=lambda b: b.depth, reverse=True):
+            billboard.draw(screen)
         for sprite in self.game.all_sprites:
             sprite.draw(screen)
-        for billboard in billboards:
-            if billboard.depth < kart_depth:
-                billboard.draw(screen)
         self.hud.draw(screen)
 
         if self.phase == RacePhase.FINISHED:
