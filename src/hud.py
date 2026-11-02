@@ -1,5 +1,4 @@
 import pygame as pg
-from os import path
 
 from src.sprites import Kart
 
@@ -22,14 +21,16 @@ def build_minimap(tiled_map, size, layer_name="road",
 
 
 class HUD:
-    FONT_PATH = path.join(path.dirname(__file__), "..", "assets", "fonts", "PressStart2P.ttf")
+    # FONT_PATH = path.join(path.dirname(__file__), "..", "assets", "fonts", "PressStart2P.ttf")
     MAX_SPEED = 240  # max speed approximation, TODO set elswhere
 
     def __init__(self, race, tiled_map=None):
         self.race = race
         self.game = game = race.game
-        self.font = pg.font.Font(self.FONT_PATH, game.config["Hud.font_size"])
-        self.position_font = pg.font.Font(self.FONT_PATH, game.config["Hud.position_font_size"])
+        # self.font = pg.font.Font(self.FONT_PATH, game.config["Hud.font_size"])
+        # self.position_font = pg.font.Font(self.FONT_PATH, game.config["Hud.position_font_size"])
+        self.font = self.game.assets["fonts"]["PressStart2P"][game.config["Hud.font_size"]]
+        self.position_font = self.game.assets["fonts"]["PressStart2P"][game.config["Hud.position_font_size"]]
         minimap_s = game.config["Hud.minimap_size"]
         self.minimap = build_minimap(tiled_map, (minimap_s, minimap_s)) if tiled_map else None
         self.MARGIN = game.config["Hud.margin"]

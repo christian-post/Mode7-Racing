@@ -1,6 +1,6 @@
 import pygame as pg
 import numpy as np
-from os import path
+from pathlib import Path
 
 try:
     from pytmx import TiledTileLayer
@@ -26,7 +26,7 @@ class Course:
                  killzone_layer="killzone", offroad_speed=0.3):
         self.name = name
         self.offroad_speed = offroad_speed
-        self.tiled_map = load_pygame(path.join(folder, f"{name}.tmx"))
+        self.tiled_map = load_pygame(str(Path(folder, f"{name}.tmx")))
         self.pixel_width = self.tiled_map.width * self.tiled_map.tilewidth
         self.pixel_height = self.tiled_map.height * self.tiled_map.tileheight
 

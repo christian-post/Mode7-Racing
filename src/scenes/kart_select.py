@@ -1,5 +1,4 @@
 from math import pi
-
 import pygame as pg
 
 from src.scenes.scene import Scene

@@ -29,6 +29,7 @@ dust_cloud_interval = 0.2
 kart_jiggle_speed = 8
 
 [Hud]
+font_sizes = [8, 24]
 font_size = 8
 position_font_size = 24
 minimap_size = 36

@@ -1,6 +1,4 @@
-import glob
-from os import path
-
+from pathlib import Path
 import pygame as pg
 
 from src.scenes.scene import Scene
@@ -11,10 +9,10 @@ class AssetLoader(Scene):
         super().__init__(game)
 
         self.folders = {
-            "sprites": path.join(game.assets_folder, "sprites"),
-            "spritesheets": path.join(game.assets_folder, "sprites", "spritesheets"),
-            "fonts": path.join(game.assets_folder, "fonts"),
-            "backgrounds": path.join(game.assets_folder, "backgrounds")
+            "sprites": Path(game.assets_folder, "sprites"),
+            "spritesheets": Path(game.assets_folder, "sprites", "spritesheets"),
+            "fonts": Path(game.assets_folder, "fonts"),
+            "backgrounds": Path(game.assets_folder, "backgrounds")
         }
 
         game.kart_names = []
@@ -22,15 +20,15 @@ class AssetLoader(Scene):
 
     def load_sprites(self):
         # single image sprites
-        sprite_files = glob.glob(path.join(self.folders["sprites"], "*.png"), recursive=False)
+        sprite_files = self.folders["sprites"].glob("*.png")
         for file in sprite_files:
             img = pg.image.load(file).convert_alpha()
-            self.game.assets["sprites"][path.splitext(path.basename(file))[0]] = img
+            self.game.assets["sprites"][file.stem] = img
 
         # cut spritesheets based on info in settings.toml
-        spritesheet_files = glob.glob(path.join(self.folders["spritesheets"], "*.png"))
+        spritesheet_files = self.folders["spritesheets"].glob("*.png")
         for file in spritesheet_files:
-            key = path.splitext(path.basename(file))[0]
+            key = file.stem
             n = self.game.config["Assets.num_images"].get(key)
             strip = pg.image.load(file).convert_alpha()
             frame_height = strip.get_height()  # spritesheets are just one row
@@ -47,10 +45,10 @@ class AssetLoader(Scene):
 
 
     def load_backgrounds(self):
-        bg_files = glob.glob(path.join(self.folders["backgrounds"], "*.png"))
+        bg_files = self.folders["backgrounds"].glob("*.png")
         for file in bg_files:
             img = pg.image.load(file).convert_alpha()
-            key = path.splitext(path.basename(file))[0]
+            key = file.stem
 
             if key in self.game.config["Assets.bg_scale_factors"]:
                 scale = self.game.config["Assets.bg_scale_factors"].get(key)
@@ -62,12 +60,14 @@ class AssetLoader(Scene):
 
 
     def load_fonts(self):
-        # TODO load in different font sizes
-        font_files = glob.glob(path.join(self.folders["fonts"], "*.ttf"))
+        # TODO these are currently unused
+        font_files = self.folders["fonts"].glob("*.ttf")
+        font_sizes = self.game.config["Hud.font_sizes"]
         for file in font_files:
-            key = path.splitext(path.basename(file))[0]
-            font = pg.font.Font(file, self.game.config["Hud.font_size"])
-            self.game.assets["fonts"][key] = font
+            self.game.assets["fonts"][file.stem] = {}
+            for size in font_sizes:
+                font = pg.font.Font(file, size)
+                self.game.assets["fonts"][file.stem][size] = font
 
 
     def startup(self):

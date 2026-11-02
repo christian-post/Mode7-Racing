@@ -1,7 +1,6 @@
-import pygame as pg
-    
 from math import pi
-from os import path
+from pathlib import Path
+import pygame as pg
 
 from src.scenes import SCENES
 from src.config import Config
@@ -15,13 +14,14 @@ class Game:
 
         # specify the directories for asset loading
         # TODO create a Loader scene
-        base_dir = path.dirname(__file__)
-        self.assets_folder = path.join(base_dir, "..", "assets")
+        base_dir = Path(__file__).parents[0]
+        self.assets_folder = Path(base_dir, "..", "assets")
 
         # handle config file
         # the example file (readonly) contents get copied to the real settings file, which will be modified
-        self.config = Config(path.join(base_dir, "..", "settings.toml"),
-                             path.join(base_dir, "..", "settings.example.toml"))
+        self.config = Config(
+            Path(base_dir, "..", "settings.toml"),
+            Path(base_dir, "..", "settings.example.toml"))
 
         # debugging
         self.debug_font = pg.font.SysFont('consolas', self.config["Debug.font_size"])
@@ -50,10 +50,13 @@ class Game:
 
         # TODO make background scenery course-specific (via TMX data)
 
+        # px per radian so the sky moves at the same rate as the ground (90 deg FOV)
+        self.sky_speed = self.game_screen.get_width() / (pi / 2)
+
         self.all_sprites = pg.sprite.Group()  # TODO rename?
         self.billboards = pg.sprite.Group()  # sprites that are drawn relative to the Mode7 map and scaled up/down relative to the camera distance
 
-        self.font = pg.font.Font(path.join(self.assets_folder, "fonts", "PressStart2P.ttf"), 8)  # menu text
+        self.font = pg.font.Font(Path(self.assets_folder, "fonts", "PressStart2P.ttf"), 8)  # menu text
 
         # race objects, set by the Race scene (sprites access them through game)
         self.player = None
@@ -105,8 +108,11 @@ class Game:
             if event.type == pg.QUIT:
                 self.running = False
 
-            if event.type == pg.KEYDOWN and event.key == pg.K_F1:
-                self.show_debug = not self.show_debug
+            if event.type == pg.KEYDOWN:
+                if event.key == pg.K_F1:
+                    self.show_debug = not self.show_debug
+                elif event.key == pg.K_F12:
+                    self.take_screenshot()
 
             # builtin and custom events go to the active scene
             if self.scene_stack:
@@ -127,6 +133,13 @@ class Game:
                                         pg.Color('white'), pg.Color('black'))
             self.display_screen.blit(text, (5, line_y))
             line_y += text.get_height()
+
+
+    def take_screenshot(self):
+        surf = self.display_screen.copy()
+        directory = Path(__file__).parents[0] / ".." / "screenshots"
+        next_index = len(list(directory.glob("*.png")))
+        pg.image.save(surf, Path(directory, f"screenshot_{next_index:03d}.png"))
         
 
     def draw(self):

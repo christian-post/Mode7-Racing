@@ -1,7 +1,6 @@
 import pygame as pg
 from math import sin, cos, pi, atan2, degrees, radians, exp
 from random import uniform
-from os import path
 from enum import Enum
 
 from src.particle import Particle

@@ -1,7 +1,6 @@
 import traceback
 from enum import Enum, auto
-from os import path
-
+from pathlib import Path
 import pygame as pg
 
 from src.scenes.scene import Scene
@@ -60,7 +59,7 @@ class Race(Scene):
 
         try:
             self.course = Course(
-                path.join(self.game.assets_folder, "courses"), 
+                Path(self.game.assets_folder, "courses"), 
                 self.course_name
                 )
         except Exception:

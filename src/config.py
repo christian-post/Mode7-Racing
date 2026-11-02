@@ -1,17 +1,17 @@
 import shutil
-from os import path
+from pathlib import Path
 import tomlkit
 
 
 class Config:
-    def __init__(self, config_file, example_file):
+    def __init__(self, config_file : Path, example_file : Path):
         self.config_file = config_file
         self.example_file = example_file
         self.load()
 
     def load(self):
         # create user config from example on first run
-        if not path.exists(self.config_file):
+        if not self.config_file.exists():
             shutil.copy(self.example_file, self.config_file)
         with open(self.config_file, "r", encoding="utf-8") as f:
             self._data = tomlkit.load(f)

@@ -1,6 +1,4 @@
-import glob
-from os import path
-
+from pathlib import Path
 import pygame as pg
 
 from src.scenes.scene import Scene
@@ -10,8 +8,9 @@ class CourseSelect(Scene):
     def __init__(self, game, **kwargs):
         super().__init__(game)
         # every .tmx file in the assets folder is a course
-        tmx_files = glob.glob(path.join(game.assets_folder, "courses", "*.tmx"))
-        self.courses = sorted(path.splitext(path.basename(f))[0] for f in tmx_files)
+        # tmx_files = glob.glob(path.join(game.assets_folder, "courses", "*.tmx"))
+        tmx_files = Path(game.assets_folder, "courses").glob("*.tmx")
+        self.courses = sorted(f.stem for f in tmx_files)
         self.selected_index = 0
 
 

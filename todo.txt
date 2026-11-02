@@ -1,4 +1,7 @@
 - framerate-independent game speed
+- replace the finish line with multiple sprites (side by side)
+
 
 refactor:
 - replace os.path and glob with pathlib
+
